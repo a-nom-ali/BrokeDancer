@@ -8,8 +8,8 @@ Welcome! This guide will help you get the BTC 15-minute arbitrage bot up and run
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd btc-polymarket-bot-15min
+git clone https://github.com/terauss/Polymarket-trading-bot-15min-BTC/edit/main/docs/GETTING_STARTED.md
+cd Polymarket-trading-bot-15min-BTC
 
 # Create virtual environment
 python -m venv .venv
