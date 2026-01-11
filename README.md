@@ -30,8 +30,8 @@ Profit:               $0.01 per share (1.01%)
 
 ### 1. Clone the repository:
 ```bash
-git clone https://github.com/Jonmaa/btc-polymarket-bot.git
-cd btc-polymarket-bot
+git clone https://github.com/terauss/Polymarket-trading-bot-15min-BTC/blob/main/README.md
+cd Polymarket-trading-bot-15min-BTC
 ```
 
 ### 2. Create virtual environment and install dependencies:
@@ -481,7 +481,6 @@ The bot now validates your configuration before starting. If you see validation 
 - **[CHANGELOG.md](CHANGELOG.md)** - Detailed changelog of all improvements
 
 ### External Resources
-- [Jeremy Whittaker's original article](https://jeremywhittaker.com/index.php/2024/09/24/arbitrage-in-polymarket-com/)
 - [Polymarket](https://polymarket.com/)
 - [BTC 15min Markets](https://polymarket.com/crypto/15M)
 - [py-clob-client documentation](https://github.com/Polymarket/py-clob-client)
