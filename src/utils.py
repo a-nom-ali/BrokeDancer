@@ -8,11 +8,16 @@ import re
 import decimal
 import time
 import logging
-from typing import Callable, Optional, Union, Dict, Any
+import functools
+import random
+from typing import Callable, Optional, Union, Dict, Any, TypeVar, Type
 from decimal import Decimal
 from collections import deque
 
 logger = logging.getLogger(__name__)
+
+# Type variable for retry decorator
+T = TypeVar('T')
 
 
 class GracefulShutdown:
@@ -474,4 +479,286 @@ class BalanceCache:
         if self._timestamp is None:
             return None
         return time.time() - self._timestamp
+
+
+# ============================================================================
+# Retry Logic with Exponential Backoff
+# ============================================================================
+
+class RetryConfig:
+    """Configuration for retry behavior."""
+
+    def __init__(
+        self,
+        max_attempts: int = 3,
+        initial_delay: float = 1.0,
+        max_delay: float = 60.0,
+        exponential_base: float = 2.0,
+        jitter: bool = True,
+        exceptions: tuple = (Exception,)
+    ):
+        """
+        Initialize retry configuration.
+
+        Args:
+            max_attempts: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds
+            max_delay: Maximum delay between retries
+            exponential_base: Base for exponential backoff
+            jitter: Add random jitter to delays
+            exceptions: Tuple of exception types to retry on
+        """
+        self.max_attempts = max_attempts
+        self.initial_delay = initial_delay
+        self.max_delay = max_delay
+        self.exponential_base = exponential_base
+        self.jitter = jitter
+        self.exceptions = exceptions
+
+    def get_delay(self, attempt: int) -> float:
+        """
+        Calculate delay for given attempt number.
+
+        Args:
+            attempt: Attempt number (0-indexed)
+
+        Returns:
+            Delay in seconds
+        """
+        delay = min(
+            self.initial_delay * (self.exponential_base ** attempt),
+            self.max_delay
+        )
+
+        if self.jitter:
+            # Add random jitter ±25%
+            jitter_amount = delay * 0.25
+            delay += random.uniform(-jitter_amount, jitter_amount)
+
+        return max(0, delay)
+
+
+def retry_with_backoff(
+    max_attempts: int = 3,
+    initial_delay: float = 1.0,
+    max_delay: float = 60.0,
+    exponential_base: float = 2.0,
+    jitter: bool = True,
+    exceptions: tuple = (Exception,),
+    on_retry: Optional[Callable[[Exception, int], None]] = None
+):
+    """
+    Decorator to retry function with exponential backoff.
+
+    Args:
+        max_attempts: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds
+        max_delay: Maximum delay between retries
+        exponential_base: Base for exponential backoff
+        jitter: Add random jitter to delays
+        exceptions: Tuple of exception types to retry on
+        on_retry: Optional callback called on retry (exception, attempt_number)
+
+    Example:
+        @retry_with_backoff(max_attempts=3, initial_delay=1.0)
+        def fetch_data():
+            # This will retry up to 3 times with exponential backoff
+            return api.get_data()
+    """
+    config = RetryConfig(
+        max_attempts=max_attempts,
+        initial_delay=initial_delay,
+        max_delay=max_delay,
+        exponential_base=exponential_base,
+        jitter=jitter,
+        exceptions=exceptions
+    )
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            last_exception = None
+
+            for attempt in range(config.max_attempts):
+                try:
+                    return func(*args, **kwargs)
+
+                except config.exceptions as e:
+                    last_exception = e
+
+                    # Don't retry on last attempt
+                    if attempt == config.max_attempts - 1:
+                        logger.error(
+                            f"{func.__name__} failed after {config.max_attempts} attempts: {e}"
+                        )
+                        raise
+
+                    delay = config.get_delay(attempt)
+                    logger.warning(
+                        f"{func.__name__} failed (attempt {attempt + 1}/{config.max_attempts}): {e}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+
+                    # Call on_retry callback if provided
+                    if on_retry:
+                        try:
+                            on_retry(e, attempt)
+                        except Exception as callback_error:
+                            logger.error(f"Error in retry callback: {callback_error}")
+
+                    time.sleep(delay)
+
+            # Should never reach here, but just in case
+            if last_exception:
+                raise last_exception
+            raise RuntimeError(f"{func.__name__} failed without raising exception")
+
+        return wrapper
+    return decorator
+
+
+# ============================================================================
+# Circuit Breaker Pattern
+# ============================================================================
+
+class CircuitBreakerState:
+    """Circuit breaker states."""
+    CLOSED = "closed"      # Normal operation
+    OPEN = "open"          # Failing, reject requests
+    HALF_OPEN = "half_open"  # Testing if service recovered
+
+
+class CircuitBreaker:
+    """
+    Circuit breaker pattern to prevent cascading failures.
+
+    Example:
+        breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60.0)
+
+        @breaker.protected
+        def api_call():
+            return fetch_data()
+    """
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 60.0,
+        expected_exception: Type[Exception] = Exception
+    ):
+        """
+        Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            recovery_timeout: Seconds to wait before attempting recovery
+            expected_exception: Exception type to count as failure
+        """
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.expected_exception = expected_exception
+
+        self._state = CircuitBreakerState.CLOSED
+        self._failure_count = 0
+        self._last_failure_time: Optional[float] = None
+        self._success_count = 0
+
+    @property
+    def state(self) -> str:
+        """Get current circuit breaker state."""
+        self._update_state()
+        return self._state
+
+    def _update_state(self) -> None:
+        """Update state based on time and failure count."""
+        if self._state == CircuitBreakerState.OPEN:
+            if self._last_failure_time is not None:
+                elapsed = time.time() - self._last_failure_time
+                if elapsed >= self.recovery_timeout:
+                    logger.info("Circuit breaker entering HALF_OPEN state (testing recovery)")
+                    self._state = CircuitBreakerState.HALF_OPEN
+                    self._success_count = 0
+
+    def record_success(self) -> None:
+        """Record successful operation."""
+        self._failure_count = 0
+
+        if self._state == CircuitBreakerState.HALF_OPEN:
+            self._success_count += 1
+            # Require 2 successes to fully close
+            if self._success_count >= 2:
+                logger.info("Circuit breaker closing (service recovered)")
+                self._state = CircuitBreakerState.CLOSED
+                self._last_failure_time = None
+
+    def record_failure(self) -> None:
+        """Record failed operation."""
+        self._failure_count += 1
+        self._last_failure_time = time.time()
+
+        if self._state == CircuitBreakerState.HALF_OPEN:
+            logger.warning("Circuit breaker reopening (recovery failed)")
+            self._state = CircuitBreakerState.OPEN
+
+        elif self._failure_count >= self.failure_threshold:
+            logger.error(
+                f"Circuit breaker opening after {self._failure_count} failures "
+                f"(threshold: {self.failure_threshold})"
+            )
+            self._state = CircuitBreakerState.OPEN
+
+    def call(self, func: Callable[..., T], *args, **kwargs) -> T:
+        """
+        Call function with circuit breaker protection.
+
+        Args:
+            func: Function to call
+            *args: Positional arguments
+            **kwargs: Keyword arguments
+
+        Returns:
+            Function result
+
+        Raises:
+            RuntimeError: If circuit is open
+            Exception: If function raises
+        """
+        self._update_state()
+
+        if self._state == CircuitBreakerState.OPEN:
+            raise RuntimeError(
+                f"Circuit breaker is OPEN (too many failures). "
+                f"Retry after {self.recovery_timeout}s"
+            )
+
+        try:
+            result = func(*args, **kwargs)
+            self.record_success()
+            return result
+
+        except self.expected_exception as e:
+            self.record_failure()
+            raise
+
+    def protected(self, func: Callable[..., T]) -> Callable[..., T]:
+        """
+        Decorator to protect function with circuit breaker.
+
+        Example:
+            @breaker.protected
+            def api_call():
+                return fetch_data()
+        """
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            return self.call(func, *args, **kwargs)
+        return wrapper
+
+    def reset(self) -> None:
+        """Reset circuit breaker to closed state."""
+        logger.info("Circuit breaker manually reset")
+        self._state = CircuitBreakerState.CLOSED
+        self._failure_count = 0
+        self._last_failure_time = None
+        self._success_count = 0
 

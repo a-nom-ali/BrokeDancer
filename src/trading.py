@@ -15,7 +15,7 @@ from py_clob_client.clob_types import (
 from py_clob_client.order_builder.constants import BUY, SELL
 
 from .config import Settings
-from .utils import mask_credential
+from .utils import mask_credential, retry_with_backoff, safe_float_conversion
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +55,20 @@ def get_client(settings: Settings) -> ClobClient:
     return _cached_client
 
 
+@retry_with_backoff(max_attempts=3, initial_delay=1.0, exceptions=(Exception,))
 def get_balance(settings: Settings) -> float:
-    """Get USDC balance from Polymarket account."""
+    """
+    Get USDC balance from Polymarket account with retry logic.
+
+    Args:
+        settings: Bot configuration settings
+
+    Returns:
+        Balance in USDC (6 decimals)
+
+    Raises:
+        Exception: If balance cannot be fetched after retries
+    """
     try:
         client = get_client(settings)
         # Get USDC (COLLATERAL) balance
@@ -65,19 +77,20 @@ def get_balance(settings: Settings) -> float:
             signature_type=settings.signature_type
         )
         result = client.get_balance_allowance(params)
-        
+
         if isinstance(result, dict):
             balance_raw = result.get("balance", "0")
-            balance_wei = float(balance_raw)
+            balance_wei = safe_float_conversion(balance_raw, 0.0)
             # USDC has 6 decimals
             balance_usdc = balance_wei / 1_000_000
+            logger.debug(f"Fetched balance: ${balance_usdc:.2f}")
             return balance_usdc
-        
+
         logger.warning(f"Unexpected response when getting balance: {result}")
         return 0.0
     except Exception as e:
-        logger.error(f"Error getting balance: {e}")
-        return 0.0
+        logger.error(f"Error getting balance: {e}", exc_info=True)
+        raise  # Let retry decorator handle it
 
 
 def place_order(settings: Settings, *, side: str, token_id: str, price: float, size: float, tif: str = "GTC") -> dict:
