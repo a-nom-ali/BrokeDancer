@@ -1,14 +1,58 @@
-# Bitcoin 15min Arbitrage Bot - Polymarket
+# Multi-Provider Trading Bot
 
-Professional arbitrage bot for Bitcoin 15-minute markets on Polymarket.
+Professional trading bot with support for multiple providers (Polymarket, Luno) and multiple strategies (binary arbitrage, copy trading, and more).
 
-> 🆕 **Enhanced Version**: This bot has been significantly improved with professional features including statistics tracking, risk management, enhanced logging, and configuration validation. See [CHANGELOG.md](CHANGELOG.md) for details. **100% backward compatible** - all new features are optional.
+> 🆕 **Multi-Provider Architecture**: Trade on Polymarket prediction markets AND Luno cryptocurrency exchange with a unified interface. See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
 
-> 💎 **NEW: Capital-Based Trading Profiles**: Automatically optimize trading parameters based on your balance! Choose from 5 profiles ($100-$5,000+) with research-backed profit thresholds. See [PROFILES.md](PROFILES.md) for details.
+> 🎯 **Multi-Strategy Support**: Run different trading strategies in parallel or combine them for maximum profit. See [STRATEGIES.md](STRATEGIES.md) for available strategies.
+
+> 💎 **Capital-Based Trading Profiles**: Automatically optimize trading parameters based on your balance! Choose from 5 profiles ($100-$5,000+) with research-backed profit thresholds. See [PROFILES.md](PROFILES.md) for details.
 
 > 📚 **New to the bot?** Check out the [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for a quick start guide!
 
-## 🎯 Strategy
+## 🏗️ Architecture Overview
+
+This bot is built with a **three-layer architecture** for maximum flexibility:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Trading Bot System                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐  │
+│  │   Provider   │─────▶│   Strategy   │─────▶│     Bot      │  │
+│  │    Layer     │      │    Layer     │      │ Orchestrator │  │
+│  └──────────────┘      └──────────────┘      └──────────────┘  │
+│         │                     │                      │           │
+│         ▼                     ▼                      ▼           │
+│  • Polymarket          • Binary Arb          • Single           │
+│  • Luno (REST+WS)      • Copy Trading        • Multi            │
+│  • Extensible          • Cross-Exchange      • Risk Mgmt        │
+│                        • Market Making                           │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Supported Providers
+
+- **Polymarket**: Prediction markets (binary outcome tokens)
+- **Luno**: Cryptocurrency spot exchange (BTC/ZAR, ETH/ZAR, etc.)
+- **More coming soon**: Binance, Kraken, Coinbase
+
+### Available Strategies
+
+- ✅ **Binary Arbitrage** (Implemented) - Buy both sides when total < $1.00
+- 🔜 **Copy Trading** (Coming Soon) - Mirror successful traders
+- 🔜 **Cross-Exchange Arbitrage** (Coming Soon) - Buy low on one exchange, sell high on another
+- 🔜 **Triangular Arbitrage** (Coming Soon) - Exploit pricing across 3+ pairs
+- 🔜 **Market Making** (Coming Soon) - Post bid/ask spreads
+- 🔜 **Grid Trading** (Coming Soon) - Buy/sell at predefined levels
+
+See [STRATEGIES.md](STRATEGIES.md) for detailed strategy documentation.
+
+---
+
+## 🎯 Default Strategy: Binary Arbitrage
 
 **Pure arbitrage**: Buy both sides (UP + DOWN) when total cost < $1.00 to guarantee profit regardless of outcome.
 
@@ -46,7 +90,17 @@ pip install -r requirements.txt
 
 ### 3. Configure environment variables:
 
-**Quick Start with Trading Profiles** (Recommended):
+**Choose your provider and strategy:**
+
+```bash
+# Polymarket + Binary Arbitrage (Default)
+cp .env.example.polymarket.binary_arb .env
+
+# Luno + Cross-Exchange Arbitrage (Coming Soon)
+cp .env.example.luno .env
+```
+
+**Quick Start with Trading Profiles** (Recommended for Polymarket):
 ```bash
 # Option 1: Auto-select profile based on your balance
 cp .env.example.auto .env
@@ -132,7 +186,14 @@ See **[PROFIT_ANALYSIS.md](PROFIT_ANALYSIS.md)** for:
 > Note: `.env` is loaded without overriding existing environment variables.
 > This means values you set in the terminal / CI will take precedence over `.env`.
 
-### Required Variables
+### Provider Selection
+
+| Variable | Description | Values |
+|----------|-------------|--------|
+| `PROVIDER` | Trading provider to use | `polymarket`, `luno` |
+| `STRATEGY` | Trading strategy to use | `binary_arbitrage`, `copy_trading`, `cross_exchange`, etc. |
+
+### Polymarket Configuration
 
 | Variable | Description | How to Get It |
 |----------|-------------|---------------|
@@ -140,6 +201,14 @@ See **[PROFIT_ANALYSIS.md](PROFIT_ANALYSIS.md)** for:
 | `POLYMARKET_API_KEY` | API key for Polymarket CLOB | Run `python -m src.generate_api_key` |
 | `POLYMARKET_API_SECRET` | API secret for Polymarket CLOB | Run `python -m src.generate_api_key` |
 | `POLYMARKET_API_PASSPHRASE` | API passphrase for Polymarket CLOB | Run `python -m src.generate_api_key` |
+
+### Luno Configuration
+
+| Variable | Description | How to Get It |
+|----------|-------------|---------------|
+| `LUNO_API_KEY_ID` | API key ID | Create at https://www.luno.com/wallet/security/api_keys |
+| `LUNO_API_KEY_SECRET` | API key secret | Create at https://www.luno.com/wallet/security/api_keys |
+| `LUNO_DEFAULT_PAIR` | Default trading pair | `XBTZAR`, `ETHZAR`, `XRPZAR`, etc. |
 
 ### Wallet Configuration
 
@@ -546,13 +615,19 @@ The bot now validates your configuration before starting. If you see validation 
 
 ## 📚 Resources & Documentation
 
-### Documentation
+### Core Documentation
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Multi-provider, multi-strategy architecture guide
+- **[STRATEGIES.md](STRATEGIES.md)** - Available trading strategies and how to create custom ones
+- **[PROFILES.md](PROFILES.md)** - Capital-based trading profiles
+- **[PROFIT_ANALYSIS.md](PROFIT_ANALYSIS.md)** - Budget and profit analysis
+- **[CHANGELOG.md](CHANGELOG.md)** - Detailed changelog of all improvements
+
+### Getting Started
 - **[docs/README.md](docs/README.md)** - Documentation index and navigation
 - **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)** - Quick start guide (5 minutes)
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Complete configuration guide
 - **[docs/FEATURES.md](docs/FEATURES.md)** - Detailed feature explanations
 - **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[CHANGELOG.md](CHANGELOG.md)** - Detailed changelog of all improvements
 
 ### External Resources
 - [Polymarket](https://polymarket.com/)
@@ -571,12 +646,21 @@ The bot now validates your configuration before starting. If you see validation 
 
 This bot has been significantly enhanced with professional features:
 
+### Latest Updates
+- **Multi-Provider Support**: Trade on Polymarket AND Luno with unified interface
+- **Multi-Strategy System**: Run different strategies in parallel or combine them
+- **Strategy Layer**: Separate trading logic from provider implementation
+- **Provider Abstraction**: Same strategy works across different exchanges
+- **WebSocket Streaming**: Real-time market data for Luno (low latency)
+
+### Previous Enhancements
 - **Statistics Tracking**: Track all trades, performance metrics, and export data
 - **Risk Management**: Configure daily limits, position sizes, and trade frequency
 - **Enhanced Logging**: Rich console output with better formatting
 - **Configuration Validation**: Catch configuration errors before trading
 - **Graceful Shutdown**: Clean shutdown with data preservation
-- **Better Documentation**: Comprehensive beginner's guide and detailed docs
+- **Capital-Based Profiles**: Auto-optimize parameters based on your balance
+- **Better Documentation**: Comprehensive architecture and strategy guides
 
 All new features are **optional** and the bot is **100% backward compatible**. See [CHANGELOG.md](CHANGELOG.md) for details.
 

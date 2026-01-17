@@ -33,6 +33,15 @@ def _check_env_override(var_name: str) -> None:
 
 @dataclass
 class Settings:
+    # Provider selection
+    # Set PROVIDER to "polymarket" or "luno"
+    provider: str = os.getenv("PROVIDER", "polymarket")
+
+    # Strategy selection
+    # Set STRATEGY to "binary_arbitrage", "copy_trading", "cross_exchange", etc.
+    strategy: str = os.getenv("STRATEGY", "binary_arbitrage")
+
+    # Polymarket-specific settings
     api_key: str = os.getenv("POLYMARKET_API_KEY", "")
     api_secret: str = os.getenv("POLYMARKET_API_SECRET", "")
     api_passphrase: str = os.getenv("POLYMARKET_API_PASSPHRASE", "")
@@ -45,6 +54,11 @@ class Settings:
     no_token_id: str = os.getenv("POLYMARKET_NO_TOKEN_ID", "")
     ws_url: str = os.getenv("POLYMARKET_WS_URL", "wss://ws-subscriptions-clob.polymarket.com")
     use_wss: bool = os.getenv("USE_WSS", "false").lower() == "true"
+
+    # Luno-specific settings
+    luno_api_key_id: str = os.getenv("LUNO_API_KEY_ID", "")
+    luno_api_key_secret: str = os.getenv("LUNO_API_KEY_SECRET", "")
+    luno_default_pair: str = os.getenv("LUNO_DEFAULT_PAIR", "XBTZAR")
 
     # Trading profile configuration
     # Set TRADING_PROFILE to one of: learning, testing, scaling, advanced, professional
@@ -80,10 +94,12 @@ def load_settings() -> Settings:
     """Load settings and check for environment variable overrides."""
     # Check for overrides on key variables
     important_vars = [
+        "PROVIDER",
         "POLYMARKET_PRIVATE_KEY", "POLYMARKET_API_KEY", "POLYMARKET_API_SECRET",
-        "POLYMARKET_SIGNATURE_TYPE", "POLYMARKET_FUNDER", "TARGET_PAIR_COST",
-        "ORDER_SIZE", "DRY_RUN", "MAX_DAILY_LOSS", "MAX_POSITION_SIZE",
-        "TRADING_PROFILE"
+        "POLYMARKET_SIGNATURE_TYPE", "POLYMARKET_FUNDER",
+        "LUNO_API_KEY_ID", "LUNO_API_KEY_SECRET", "LUNO_DEFAULT_PAIR",
+        "TARGET_PAIR_COST", "ORDER_SIZE", "DRY_RUN",
+        "MAX_DAILY_LOSS", "MAX_POSITION_SIZE", "TRADING_PROFILE"
     ]
 
     for var in important_vars:
@@ -200,3 +216,38 @@ def apply_profile_to_settings(
 def get_env_overrides() -> Set[str]:
     """Get the set of environment variables that were overridden."""
     return _env_overrides.copy()
+
+
+def get_provider_config(settings: Settings) -> Dict:
+    """
+    Extract provider-specific configuration from Settings.
+
+    Args:
+        settings: Settings object
+
+    Returns:
+        Dict with provider-specific config keys
+
+    Examples:
+        >>> settings = load_settings()
+        >>> config = get_provider_config(settings)
+        >>> # For Polymarket: {"private_key": "0x...", "signature_type": 1, ...}
+        >>> # For Luno: {"api_key_id": "...", "api_key_secret": "...", ...}
+    """
+    if settings.provider.lower() == "polymarket":
+        return {
+            "private_key": settings.private_key,
+            "signature_type": settings.signature_type,
+            "funder": settings.funder,
+            "market_id": settings.market_id,
+            "yes_token_id": settings.yes_token_id,
+            "no_token_id": settings.no_token_id,
+        }
+    elif settings.provider.lower() == "luno":
+        return {
+            "api_key_id": settings.luno_api_key_id,
+            "api_key_secret": settings.luno_api_key_secret,
+            "default_pair": settings.luno_default_pair,
+        }
+    else:
+        raise ValueError(f"Unknown provider: {settings.provider}")
