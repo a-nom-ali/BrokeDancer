@@ -4,6 +4,8 @@ Professional arbitrage bot for Bitcoin 15-minute markets on Polymarket.
 
 > 🆕 **Enhanced Version**: This bot has been significantly improved with professional features including statistics tracking, risk management, enhanced logging, and configuration validation. See [CHANGELOG.md](CHANGELOG.md) for details. **100% backward compatible** - all new features are optional.
 
+> 💎 **NEW: Capital-Based Trading Profiles**: Automatically optimize trading parameters based on your balance! Choose from 5 profiles ($100-$5,000+) with research-backed profit thresholds. See [PROFILES.md](PROFILES.md) for details.
+
 > 📚 **New to the bot?** Check out the [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for a quick start guide!
 
 ## 🎯 Strategy
@@ -44,12 +46,84 @@ pip install -r requirements.txt
 
 ### 3. Configure environment variables:
 
-Copy `.env.example` to `.env`:
+**Quick Start with Trading Profiles** (Recommended):
+```bash
+# Option 1: Auto-select profile based on your balance
+cp .env.example.auto .env
+
+# Option 2: Choose a specific profile for your capital tier
+cp .env.example.learning .env    # $100-$200
+cp .env.example.testing .env     # $200-$500
+cp .env.example.scaling .env     # $500-$2,000
+cp .env.example.advanced .env    # $2,000-$5,000
+cp .env.example.professional .env  # $5,000+
+```
+
+Then edit `.env` and add your credentials. The profile will automatically optimize all trading parameters!
+
+**See [PROFILES.md](PROFILES.md) for detailed profile documentation and expected performance.**
+
+**Manual Configuration** (Advanced users):
 ```bash
 cp .env.example .env
 ```
 
 Then configure each variable (see detailed explanation below).
+
+---
+
+## 💎 Trading Profiles (Capital-Based Optimization)
+
+This bot includes **automatic profile selection** that optimizes trading parameters based on your capital. Each profile is calibrated using real 2025 Polymarket market data.
+
+### Quick Comparison
+
+| Profile | Capital | Spread | Position | Max Daily Trades | Daily Profit* |
+|---------|---------|--------|----------|------------------|---------------|
+| Learning | $100-$200 | 3.0% | 5 shares | 10 | $0.25-$0.50 |
+| Testing | $200-$500 | 2.5% | 10 shares | 20 | $1.25-$2.50 |
+| Scaling | $500-$2K | 2.0% | 25 shares | 40 | $2.50-$10 |
+| Advanced | $2K-$5K | 1.5% | 50 shares | 60 | $30-$50 |
+| Professional | $5K+ | 1.0% | 100 shares | 100 | $50-$100+ |
+
+*Conservative estimates per successful trade.
+
+### Why Use Profiles?
+
+✅ **Research-Based**: Calibrated with 2025 market data (fees, spreads, success rates)
+✅ **Automatic Risk Management**: Daily loss limits, position caps, trade frequency controls
+✅ **Optimized for Capital**: Tighter spreads = more opportunities as your capital grows
+✅ **Set & Forget**: Just choose your tier, bot handles the rest
+
+### Getting Started
+
+**Option 1: Auto-Selection** (Recommended)
+```bash
+cp .env.example.auto .env
+# Set TRADING_PROFILE=auto
+# Bot automatically selects optimal profile based on your balance
+```
+
+**Option 2: Manual Selection**
+```bash
+cp .env.example.scaling .env  # Example: Scaling tier
+# Set TRADING_PROFILE=scaling
+```
+
+### 📚 Full Documentation
+
+See **[PROFILES.md](PROFILES.md)** for:
+- Detailed profile parameters and expected performance
+- Profit trajectory projections (conservative & aggressive)
+- Recommended progression path (Learning → Professional)
+- Risk management details
+- Customization options
+
+See **[PROFIT_ANALYSIS.md](PROFIT_ANALYSIS.md)** for:
+- Minimum budget recommendations
+- Real-world success cases
+- Fee structure analysis
+- Optimization strategies
 
 ---
 

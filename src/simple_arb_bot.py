@@ -14,7 +14,7 @@ from typing import Optional
 
 import httpx
 
-from .config import load_settings
+from .config import load_settings, apply_profile_to_settings
 from .config_validator import ConfigValidator
 from .logger import setup_logging, print_header, print_success, print_error
 from .lookup import fetch_market_from_slug
@@ -1068,25 +1068,47 @@ class SimpleArbitrageBot:
 
 async def main():
     """Main entry point."""
-    
+
     # Setup graceful shutdown handler
     shutdown_handler = GracefulShutdown()
-    
+
     try:
         # Load configuration
         settings = load_settings()
-        
+
         # Setup logging with proper verbosity
         setup_logging(verbose=settings.verbose, use_rich=settings.use_rich_output)
-        
+
         # Validate configuration
         if not ConfigValidator.validate_and_print(settings):
             print_error("Configuration validation failed. Please fix the errors and try again.")
             return
-        
+
         print_header("🚀 BTC 15-Minute Arbitrage Bot")
         print_success("Configuration loaded and validated")
-        
+
+        # Apply capital-based trading profile
+        # Import here to avoid circular dependency
+        from .trading import get_balance
+
+        logger.info("\n" + "=" * 70)
+        logger.info("📊 APPLYING TRADING PROFILE")
+        logger.info("=" * 70)
+
+        try:
+            # Get current balance to determine appropriate profile
+            balance = get_balance(settings)
+            logger.info(f"Current balance: ${balance:.2f}")
+
+            # Apply profile settings based on balance
+            settings = apply_profile_to_settings(settings, balance)
+
+        except Exception as e:
+            logger.warning(f"⚠️ Could not fetch balance for profile selection: {e}")
+            logger.warning("Using default configuration without profile optimization")
+
+        logger.info("=" * 70 + "\n")
+
         # Create and run bot
         bot = SimpleArbitrageBot(settings)
         
