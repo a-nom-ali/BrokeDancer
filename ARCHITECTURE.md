@@ -134,7 +134,151 @@ provider = LunoProvider({
 })
 ```
 
-#### 3. **LunoWebSocket** (`providers/luno_websocket.py`)
+#### 3. **KalshiProvider** (`providers/kalshi.py`)
+
+- **Type**: US-regulated prediction market
+- **Volume**: $23.8B in 2025 (1,100% YoY growth)
+- **Pairs**: Event markets (political, economic, crypto)
+- **Prices**: Cents (0-100, converted to 0.00-1.00)
+- **Auth**: Email/password or API key (JWT tokens)
+- **Features**:
+  - Cross-platform arbitrage with Polymarket
+  - KYC required (CFTC-regulated)
+  - 7% profit commission (no loss commission)
+  - Market discovery by event name
+
+**Example**:
+```python
+provider = KalshiProvider({
+    "api_key": "...",  # or email/password
+    "default_pair": "KXBTC-23JAN31-T95000"
+})
+```
+
+#### 4. **BinanceProvider** (`providers/binance.py`)
+
+- **Type**: Cryptocurrency exchange (spot)
+- **Size**: World's largest exchange by volume
+- **Pairs**: 600+ trading pairs (BTC, ETH, altcoins)
+- **Prices**: USDT, BUSD, BTC quoted
+- **Auth**: API key + HMAC SHA256 signature
+- **Features**:
+  - Unmatched global liquidity
+  - Cross-exchange arbitrage opportunities
+  - Triangular arbitrage within Binance
+  - Testnet available
+  - 0.1% fees (0.075% with BNB)
+
+**Example**:
+```python
+provider = BinanceProvider({
+    "api_key": "...",
+    "api_secret": "...",
+    "default_pair": "BTCUSDT",
+    "testnet": False
+})
+```
+
+#### 5. **CoinbaseProvider** (`providers/coinbase.py`)
+
+- **Type**: Cryptocurrency exchange (spot)
+- **Size**: Largest US-based exchange
+- **Pairs**: Major cryptocurrencies (BTC, ETH, SOL)
+- **Prices**: USD, EUR quoted
+- **Auth**: API key + HMAC SHA256 signature
+- **Features**:
+  - US regulatory compliance
+  - Strong USD liquidity
+  - Cross-exchange arbitrage (often premium vs Binance)
+  - Sandbox for testing
+  - 0.4-0.6% fees (volume-based)
+
+**Example**:
+```python
+provider = CoinbaseProvider({
+    "api_key": "...",
+    "api_secret": "...",
+    "default_pair": "BTC-USD",
+    "sandbox": False
+})
+```
+
+#### 6. **BybitProvider** (`providers/bybit.py`)
+
+- **Type**: Derivatives exchange (perpetuals, futures, options)
+- **Size**: Leading derivatives platform
+- **Pairs**: 200+ perpetual contracts
+- **Prices**: USDT-margined, Coin-margined
+- **Auth**: API key + HMAC SHA256 signature (v5 API)
+- **Features**:
+  - High leverage (up to 100x)
+  - Funding rate arbitrage opportunities
+  - Unified trading account
+  - Testnet available
+  - 0.02% maker, 0.055% taker
+
+**Example**:
+```python
+provider = BybitProvider({
+    "api_key": "...",
+    "api_secret": "...",
+    "default_pair": "BTCUSDT",
+    "category": "linear",  # linear, inverse, spot
+    "testnet": False
+})
+```
+
+#### 7. **KrakenProvider** (`providers/kraken.py`)
+
+- **Type**: Cryptocurrency exchange (spot)
+- **Size**: One of the oldest and most trusted exchanges
+- **Pairs**: Major cryptocurrencies with fiat pairs
+- **Prices**: USD, EUR, GBP, CAD, JPY quoted
+- **Auth**: API key + HMAC SHA512 signature (base64-encoded secret)
+- **Features**:
+  - Deep liquidity for fiat pairs
+  - Strong regulatory compliance
+  - Fiat on-ramps (bank wires)
+  - Cross-exchange arbitrage opportunities
+  - 0.16-0.36% fees (volume-based)
+
+**Example**:
+```python
+provider = KrakenProvider({
+    "api_key": "...",
+    "api_secret": "...",  # base64-encoded
+    "default_pair": "XXBTZUSD"
+})
+```
+
+#### 8. **DydxProvider** (`providers/dydx.py`)
+
+- **Type**: Decentralized perpetuals exchange
+- **Volume**: $1.5T+ all-time volume
+- **Pairs**: Major perpetual contracts
+- **Prices**: USDC collateral (cross-margin)
+- **Auth**: Wallet address + mnemonic (on-chain signing)
+- **Features**:
+  - Fully decentralized (non-custodial)
+  - No KYC required
+  - Funding rate arbitrage vs CEX
+  - Hourly funding (vs 8-hour on CEX)
+  - 0.02% maker, 0.05% taker
+  - Smart contract risk instead of counterparty risk
+
+**Note**: Order placement requires the official dYdX v4 Python client for transaction signing.
+
+**Example**:
+```python
+provider = DydxProvider({
+    "address": "dydx1...",
+    "mnemonic": "word1 word2...",
+    "default_pair": "BTC-USD",
+    "testnet": False
+})
+```
+
+#### 9. **LunoWebSocket** (`providers/luno_websocket.py`)
 
 - **Market Stream**: Real-time orderbook updates
   - Sequence-numbered updates (must apply in order)
@@ -162,18 +306,66 @@ await market_stream.run()
 ```python
 from src.providers import create_provider
 
-# Polymarket
+# Polymarket (Prediction Market)
 poly_provider = create_provider("polymarket", {
     "private_key": "0x...",
-    ...
+    "signature_type": 1
 })
 
-# Luno
+# Luno (South African Exchange)
 luno_provider = create_provider("luno", {
     "api_key_id": "...",
-    ...
+    "api_key_secret": "..."
+})
+
+# Kalshi (US Prediction Market)
+kalshi_provider = create_provider("kalshi", {
+    "api_key": "...",
+})
+
+# Binance (Global Crypto Exchange)
+binance_provider = create_provider("binance", {
+    "api_key": "...",
+    "api_secret": "...",
+    "testnet": False
+})
+
+# Coinbase (US Crypto Exchange)
+coinbase_provider = create_provider("coinbase", {
+    "api_key": "...",
+    "api_secret": "...",
+    "sandbox": False
+})
+
+# Bybit (Derivatives Exchange)
+bybit_provider = create_provider("bybit", {
+    "api_key": "...",
+    "api_secret": "...",
+    "category": "linear"
+})
+
+# Kraken (Trusted Crypto Exchange)
+kraken_provider = create_provider("kraken", {
+    "api_key": "...",
+    "api_secret": "..."  # base64-encoded
+})
+
+# dYdX (DeFi Derivatives)
+dydx_provider = create_provider("dydx", {
+    "address": "dydx1...",
+    "mnemonic": "..."
 })
 ```
+
+**Supported Providers**:
+- `polymarket` - Prediction market (binary outcomes)
+- `luno` - Cryptocurrency exchange (ZAR pairs)
+- `kalshi` - US-regulated prediction market ($23.8B volume)
+- `binance` - World's largest cryptocurrency exchange
+- `coinbase` - Largest US-based exchange
+- `bybit` - Leading derivatives exchange (perpetuals)
+- `kraken` - Trusted exchange with fiat pairs
+- `dydx` - Decentralized perpetuals ($1.5T+ volume)
 
 ---
 
