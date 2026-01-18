@@ -8,8 +8,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from ..providers.base import BaseProvider
-from ..core.order_book import OrderBook, OrderBookLevel
+from ..providers.base import BaseProvider, Orderbook, OrderbookEntry, Balance
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class HistoricalDataProvider(BaseProvider):
         """Set current data index."""
         self.current_index = min(index, len(self.historical_data) - 1)
 
-    async def get_order_book(self, market_pair: str) -> Optional[OrderBook]:
+    async def get_order_book(self, market_pair: str) -> Optional[Orderbook]:
         """Get current order book from historical data."""
         if self.current_index >= len(self.historical_data):
             return None
@@ -52,26 +51,31 @@ class HistoricalDataProvider(BaseProvider):
         # Mock liquidity
         size = data.get('volume', 1.0)
 
-        return OrderBook(
-            market_pair=market_pair,
+        # Get timestamp (convert datetime to milliseconds if needed)
+        timestamp = data.get('timestamp')
+        if isinstance(timestamp, datetime):
+            timestamp = int(timestamp.timestamp() * 1000)
+
+        return Orderbook(
+            pair=market_pair,
             bids=[
-                OrderBookLevel(price=bid_price, size=size),
-                OrderBookLevel(price=bid_price * 0.999, size=size * 1.5),
-                OrderBookLevel(price=bid_price * 0.998, size=size * 2.0)
+                OrderbookEntry(price=bid_price, volume=size),
+                OrderbookEntry(price=bid_price * 0.999, volume=size * 1.5),
+                OrderbookEntry(price=bid_price * 0.998, volume=size * 2.0)
             ],
             asks=[
-                OrderBookLevel(price=ask_price, size=size),
-                OrderBookLevel(price=ask_price * 1.001, size=size * 1.5),
-                OrderBookLevel(price=ask_price * 1.002, size=size * 2.0)
+                OrderbookEntry(price=ask_price, volume=size),
+                OrderbookEntry(price=ask_price * 1.001, volume=size * 1.5),
+                OrderbookEntry(price=ask_price * 1.002, volume=size * 2.0)
             ],
-            timestamp=data['timestamp']
+            timestamp=timestamp
         )
 
-    async def get_balance(self) -> Dict[str, Any]:
+    async def get_balance(self) -> Dict[str, Balance]:
         """Get mock balance."""
         return {
-            "USDT": type('Balance', (), {"total": 10000.0, "available": 10000.0})(),
-            "BTC": type('Balance', (), {"total": 0.0, "available": 0.0})()
+            "USDT": Balance(asset="USDT", available=10000.0, reserved=0.0, total=10000.0),
+            "BTC": Balance(asset="BTC", available=0.0, reserved=0.0, total=0.0)
         }
 
     async def place_order(self, market_pair: str, side, order_type, size: float, price: Optional[float] = None) -> Dict[str, Any]:
