@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/static/css/bot-card.css">
     <link rel="stylesheet" href="/static/css/profile-modal.css">
+    <link rel="stylesheet" href="/static/css/live-data.css">
     <style>
         :root {
             --bg-primary: #0f172a;
@@ -582,11 +583,53 @@
             </div>
         </div>
 
-        <div class="section">
-            <h2>📈 Performance Chart</h2>
-            <div class="chart-container">
-                <canvas id="profitChart"></canvas>
+        <!-- Performance Chart with Multi-Timeframe -->
+        <div class="performance-chart-container">
+            <div class="performance-chart-header">
+                <h2 class="performance-chart-title">📈 Performance Chart</h2>
+                <div class="timeframe-buttons">
+                    <button class="timeframe-btn active" data-timeframe="1H" onclick="performanceChart.setTimeframe('1H')">1H</button>
+                    <button class="timeframe-btn" data-timeframe="4H" onclick="performanceChart.setTimeframe('4H')">4H</button>
+                    <button class="timeframe-btn" data-timeframe="24H" onclick="performanceChart.setTimeframe('24H')">24H</button>
+                    <button class="timeframe-btn" data-timeframe="7D" onclick="performanceChart.setTimeframe('7D')">7D</button>
+                    <button class="timeframe-btn" data-timeframe="30D" onclick="performanceChart.setTimeframe('30D')">30D</button>
+                </div>
             </div>
+            <div class="chart-wrapper">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Live Event Feed -->
+        <div class="event-feed-container">
+            <div class="event-feed-header">
+                <h2 class="event-feed-title">🔔 Live Events</h2>
+                <div class="event-feed-controls">
+                    <button class="event-feed-pause-btn" onclick="eventFeed.togglePause()" title="Pause auto-scroll">⏸</button>
+                    <button class="event-feed-export-btn" onclick="eventFeed.exportEvents('json')" title="Export as JSON">📥 JSON</button>
+                    <button class="event-feed-export-btn" onclick="eventFeed.exportEvents('csv')" title="Export as CSV">📥 CSV</button>
+                    <button class="event-feed-clear-btn" onclick="eventFeed.clear()" title="Clear all events">🗑 Clear</button>
+                </div>
+            </div>
+            <div class="event-feed-filters">
+                <label class="filter-checkbox">
+                    <input type="checkbox" checked onchange="eventFeed.setFilter('info', this.checked)">
+                    Info
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" checked onchange="eventFeed.setFilter('success', this.checked)">
+                    Success
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" checked onchange="eventFeed.setFilter('warning', this.checked)">
+                    Warning
+                </label>
+                <label class="filter-checkbox">
+                    <input type="checkbox" checked onchange="eventFeed.setFilter('error', this.checked)">
+                    Error
+                </label>
+            </div>
+            <div id="eventFeedContainer"></div>
         </div>
 
         <div class="section">
@@ -807,6 +850,11 @@
             console.log('Connected to server');
             socket.emit('request_stats');
             socket.emit('request_trades');
+
+            // Add event to feed
+            if (eventFeed) {
+                eventFeed.addEvent('success', 'Connected to server');
+            }
         });
 
         socket.on('stats_update', (stats) => {
@@ -828,30 +876,66 @@
                 profitChart.data.labels.shift();
             }
             profitChart.update();
+
+            // Update performance chart
+            if (performanceChart) {
+                performanceChart.addDataPoint(new Date(trade.timestamp), trade.profit || 0);
+            }
+
+            // Add event to feed
+            if (eventFeed) {
+                const profitFormatted = (trade.profit || 0).toFixed(2);
+                const profitSign = trade.profit >= 0 ? '+' : '';
+                eventFeed.addEvent(
+                    trade.profit >= 0 ? 'success' : 'warning',
+                    `Trade: ${trade.side} ${trade.size} ${trade.pair || ''} @ $${trade.price}`,
+                    { profit: `${profitSign}$${profitFormatted}`, strategy: trade.strategy }
+                );
+            }
         });
 
         socket.on('bot_started', (data) => {
             document.getElementById('statusText').textContent = 'Running';
             document.getElementById('statusIndicator').className = 'status-indicator running';
+
+            if (eventFeed) {
+                eventFeed.addEvent('success', `Bot started: ${data.provider || 'unknown'} - ${data.strategy || 'unknown'}`);
+            }
         });
 
         socket.on('bot_stopped', (data) => {
             document.getElementById('statusText').textContent = 'Stopped';
             document.getElementById('statusIndicator').className = 'status-indicator stopped';
+
+            if (eventFeed) {
+                eventFeed.addEvent('info', 'Bot stopped');
+            }
         });
 
         socket.on('bot_paused', (data) => {
             document.getElementById('statusText').textContent = 'Paused';
             document.getElementById('statusIndicator').className = 'status-indicator paused';
+
+            if (eventFeed) {
+                eventFeed.addEvent('warning', 'Bot paused');
+            }
         });
 
         socket.on('bot_resumed', (data) => {
             document.getElementById('statusText').textContent = 'Running';
             document.getElementById('statusIndicator').className = 'status-indicator running';
+
+            if (eventFeed) {
+                eventFeed.addEvent('success', 'Bot resumed');
+            }
         });
 
         socket.on('notification', (data) => {
             showNotification(data.message, data.level);
+
+            if (eventFeed) {
+                eventFeed.addEvent(data.level || 'info', data.message);
+            }
         });
 
         // Theme toggle
@@ -1059,6 +1143,10 @@
             loadActiveProfile();
         });
 
+        // Initialize Phase 3 components
+        let performanceChart;
+        let eventFeed;
+
         // Initialize
         window.onload = () => {
             // Load saved theme
@@ -1071,10 +1159,19 @@
             initChart();
             loadOptions();
             loadActiveProfile();
+
+            // Initialize Phase 3 components
+            performanceChart = new PerformanceChart('performanceChart');
+            eventFeed = new EventFeed('eventFeedContainer');
+
+            // Add initial event
+            eventFeed.addEvent('info', 'Dashboard initialized', { version: '3.0' });
         };
     </script>
     <script src="/static/js/components/bot-card.js"></script>
     <script src="/static/js/components/profile-modal.js"></script>
     <script src="/static/js/components/bot-config-modal.js"></script>
+    <script src="/static/js/components/performance-chart.js"></script>
+    <script src="/static/js/components/event-feed.js"></script>
 </body>
 </html>
