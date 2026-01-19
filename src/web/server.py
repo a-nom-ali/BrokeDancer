@@ -862,6 +862,18 @@ class TradingBotWebServer:
             'kalshi': ['KALSHI_API_KEY', 'KALSHI_API_SECRET']
         }
 
+        # Provider favicon URLs
+        provider_favicons = {
+            'polymarket': 'https://polymarket.com/favicon.ico',
+            'binance': 'https://bin.bnbstatic.com/static/images/common/favicon.ico',
+            'coinbase': 'https://www.coinbase.com/favicon.ico',
+            'bybit': 'https://www.bybit.com/favicon.ico',
+            'kraken': 'https://www.kraken.com/favicon.ico',
+            'dydx': 'https://dydx.exchange/favicon.ico',
+            'luno': 'https://www.luno.com/favicon.ico',
+            'kalshi': 'https://kalshi.com/favicon.ico'
+        }
+
         for provider_name in providers.keys():
             try:
                 # Check authentication status
@@ -876,6 +888,7 @@ class TradingBotWebServer:
                         'auth_configured': False,
                         'missing_vars': missing_vars,
                         'message': f'Missing: {", ".join(missing_vars)}',
+                        'favicon': provider_favicons.get(provider_name, ''),
                         'last_check': datetime.now().isoformat()
                     }
                 else:
@@ -885,6 +898,7 @@ class TradingBotWebServer:
                         'status': 'online',
                         'auth_configured': True,
                         'latency_ms': 0.0,  # TODO: Implement actual ping
+                        'favicon': provider_favicons.get(provider_name, ''),
                         'last_check': datetime.now().isoformat()
                     }
             except Exception as e:
@@ -892,6 +906,7 @@ class TradingBotWebServer:
                     'status': 'offline',
                     'auth_configured': False,
                     'error': str(e),
+                    'favicon': provider_favicons.get(provider_name, ''),
                     'last_check': datetime.now().isoformat()
                 }
 

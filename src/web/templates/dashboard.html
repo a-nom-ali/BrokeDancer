@@ -919,11 +919,19 @@
                     ? '<span class="provider-health__auth-badge provider-health__auth-badge--configured">✓ AUTH</span>'
                     : '<span class="provider-health__auth-badge provider-health__auth-badge--required">AUTH REQUIRED</span>';
 
+                // Favicon
+                const favicon = status.favicon
+                    ? `<img src="${status.favicon}" class="provider-health__favicon" alt="${name} logo" onerror="this.style.display='none'">`
+                    : '';
+
                 return `
                     <div class="provider-health-item provider-health-item--${status.status}">
                         <div>
                             <div class="provider-health__name">
-                                ${name}
+                                <div class="provider-health__text">
+                                    ${favicon}
+                                    <span>${name}</span>
+                                </div>
                                 ${authBadge}
                             </div>
                             <div class="provider-health__metrics">
