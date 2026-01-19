@@ -356,12 +356,19 @@ ALERT_ON_PROFIT_THRESHOLD=100.0
 
 ## 📖 Documentation
 
+### Core Documentation
 - **[FEATURES.md](FEATURES.md)** - Complete feature list with examples
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and design
 - **[STRATEGIES.md](STRATEGIES.md)** - All 11 strategies explained
 - **[WEB_DASHBOARD.md](WEB_DASHBOARD.md)** - Web interface documentation
 - **[PROVIDER_RESEARCH.md](PROVIDER_RESEARCH.md)** - Exchange research and selection
 - **[PROFILES.md](PROFILES.md)** - Capital-based trading profiles
+
+### UX Enhancement Documentation (New!)
+- **[UX_ENHANCEMENT_PLAN.md](UX_ENHANCEMENT_PLAN.md)** - Next-generation dashboard design plan
+- **[IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md)** - Code examples and implementation details
+- **[QUICK_START_UX.md](QUICK_START_UX.md)** - Quick start guide for UX enhancements
+- **[MOCKUPS.md](MOCKUPS.md)** - Visual mockups and design reference
 
 ## 🎓 Strategy Selection Guide
 
