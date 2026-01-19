@@ -7,6 +7,7 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/static/css/bot-card.css">
+    <link rel="stylesheet" href="/static/css/profile-modal.css">
     <style>
         :root {
             --bg-primary: #0f172a;
@@ -99,6 +100,26 @@
             h1 {
                 font-size: 28px;
             }
+        }
+
+        .profile-button {
+            padding: 8px 16px;
+            background: var(--info);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .profile-button:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
         }
 
         .theme-toggle {
@@ -492,6 +513,9 @@
                 <h1>🤖 Trading Bot Dashboard</h1>
             </div>
             <div class="header-right">
+                <button class="profile-button" onclick="profileModal.show()" title="Manage Profiles">
+                    👤 <span id="activeProfileName">Profiles</span>
+                </button>
                 <div class="status">
                     <span id="statusText">Stopped</span>
                     <div id="statusIndicator" class="status-indicator stopped"></div>
@@ -991,6 +1015,25 @@
             alert('Bot configuration modal not implemented yet.');
         }
 
+        // Load active profile name
+        async function loadActiveProfile() {
+            try {
+                const response = await fetch('/api/profiles/active');
+                const profile = await response.json();
+
+                if (profile && profile.name) {
+                    document.getElementById('activeProfileName').textContent = profile.name;
+                }
+            } catch (error) {
+                console.error('Error loading active profile:', error);
+            }
+        }
+
+        // Listen for profile activation
+        window.addEventListener('profile-activated', () => {
+            loadActiveProfile();
+        });
+
         // Initialize
         window.onload = () => {
             // Load saved theme
@@ -1002,8 +1045,10 @@
 
             initChart();
             loadOptions();
+            loadActiveProfile();
         };
     </script>
     <script src="/static/js/components/bot-card.js"></script>
+    <script src="/static/js/components/profile-modal.js"></script>
 </body>
 </html>
