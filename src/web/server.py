@@ -35,6 +35,7 @@ from ..strategies.factory import create_strategy, get_supported_strategies
 from .multi_bot_manager import MultiBotManager
 from .data_export import DataExporter
 from .alerts import AlertManager
+from .profile_manager import ProfileManager
 from ..backtesting import BacktestEngine, HistoricalDataProvider
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,9 @@ class TradingBotWebServer:
 
         # Alert manager
         self.alert_manager = AlertManager(self.config.get("alerts", {}))
+
+        # Profile manager
+        self.profile_manager = ProfileManager(self.config.get("master_password"))
 
         # Bot state (legacy single-bot support)
         self.bot_running = False
@@ -666,6 +670,124 @@ class TradingBotWebServer:
 
             except Exception as e:
                 logger.error(f"Error getting alert history: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        # Profile management routes
+        @self.app.route('/api/profiles', methods=['GET'])
+        def api_list_profiles():
+            """List all profiles."""
+            try:
+                profiles = self.profile_manager.list_profiles()
+                return jsonify(profiles)
+            except Exception as e:
+                logger.error(f"Error listing profiles: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/profiles', methods=['POST'])
+        def api_create_profile():
+            """Create new profile."""
+            data = request.json or {}
+            name = data.get('name')
+            config = data.get('config', {})
+
+            if not name:
+                return jsonify({"error": "name required"}), 400
+
+            try:
+                profile_id = self.profile_manager.create_profile(name, config)
+                return jsonify({"profile_id": profile_id, "status": "created"})
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            except Exception as e:
+                logger.error(f"Error creating profile: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/profiles/<profile_id>', methods=['GET'])
+        def api_get_profile(profile_id):
+            """Get profile (credentials masked)."""
+            try:
+                profile = self.profile_manager.get_profile(profile_id)
+                if not profile:
+                    return jsonify({"error": "Profile not found"}), 404
+
+                # Mask credentials in response
+                masked_profile = profile.copy()
+                masked_profile['config'] = self.profile_manager.mask_credentials(profile['config'])
+
+                return jsonify(masked_profile)
+            except Exception as e:
+                logger.error(f"Error getting profile: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/profiles/<profile_id>', methods=['PUT'])
+        def api_update_profile(profile_id):
+            """Update profile."""
+            data = request.json or {}
+            config = data.get('config', {})
+
+            try:
+                success = self.profile_manager.update_profile(profile_id, config)
+                if success:
+                    return jsonify({"status": "updated"})
+                return jsonify({"error": "Profile not found"}), 404
+            except Exception as e:
+                logger.error(f"Error updating profile: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/profiles/<profile_id>/activate', methods=['POST'])
+        def api_activate_profile(profile_id):
+            """Activate a profile."""
+            try:
+                success = self.profile_manager.activate_profile(profile_id)
+                if success:
+                    return jsonify({"status": "activated"})
+                return jsonify({"error": "Profile not found"}), 404
+            except Exception as e:
+                logger.error(f"Error activating profile: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/profiles/active', methods=['GET'])
+        def api_get_active_profile():
+            """Get active profile."""
+            try:
+                profile = self.profile_manager.get_active_profile()
+                if profile:
+                    # Mask credentials
+                    masked_profile = profile.copy()
+                    masked_profile['config'] = self.profile_manager.mask_credentials(profile['config'])
+                    return jsonify(masked_profile)
+                return jsonify(None)
+            except Exception as e:
+                logger.error(f"Error getting active profile: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/profiles/<profile_id>', methods=['DELETE'])
+        def api_delete_profile(profile_id):
+            """Delete profile."""
+            try:
+                success = self.profile_manager.delete_profile(profile_id)
+                if success:
+                    return jsonify({"status": "deleted"})
+                return jsonify({"error": "Failed to delete profile"}), 500
+            except Exception as e:
+                logger.error(f"Error deleting profile: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/profiles/validate-credentials', methods=['POST'])
+        def api_validate_credentials():
+            """Validate API credentials."""
+            data = request.json or {}
+            provider = data.get('provider')
+            credentials = data.get('credentials', {})
+
+            if not provider:
+                return jsonify({"error": "provider required"}), 400
+
+            try:
+                result = self.profile_manager.validate_credentials(provider, credentials)
+                return jsonify(result)
+            except Exception as e:
+                logger.error(f"Error validating credentials: {e}")
                 return jsonify({"error": str(e)}), 500
 
     def _setup_websocket_handlers(self):
