@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/static/css/bot-card.css">
     <link rel="stylesheet" href="/static/css/profile-modal.css">
     <link rel="stylesheet" href="/static/css/live-data.css">
+    <link rel="stylesheet" href="/static/css/strategy-builder.css">
     <style>
         :root {
             --bg-primary: #0f172a;
@@ -510,7 +511,12 @@
 
         <!-- Provider Health Panel -->
         <div class="section">
-            <h2>📡 Provider Status</h2>
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>📡 Provider Status</h2>
+                <button class="btn primary" onclick="strategyBuilderModal.show()" style="padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; background: var(--info); color: white; font-weight: 600;">
+                    🎨 Strategy Builder
+                </button>
+            </div>
             <div class="card">
                 <div id="providerHealth" class="provider-health-grid">
                     <!-- Provider health items will be inserted here -->
@@ -1033,5 +1039,7 @@
     <script src="/static/js/components/bot-config-modal.js"></script>
     <script src="/static/js/components/performance-chart.js"></script>
     <script src="/static/js/components/event-feed.js"></script>
+    <script src="/static/js/components/strategy-builder.js"></script>
+    <script src="/static/js/components/strategy-builder-modal.js"></script>
 </body>
 </html>
