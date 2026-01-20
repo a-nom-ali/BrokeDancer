@@ -16,6 +16,9 @@ class StrategyBuilder {
         this.selectedBlock = null;
         this.draggedBlock = null;
         this.offset = { x: 0, y: 0 };
+        this.connectionStart = null; // For drawing connections
+        this.isDraggingBlock = false;
+        this.tempConnection = null; // Temporary connection while dragging
 
         // Block types library
         this.blockLibrary = {
@@ -217,6 +220,9 @@ class StrategyBuilder {
 
         // Canvas click events
         this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
         // Window resize
         window.addEventListener('resize', () => this.setupCanvas());
@@ -277,7 +283,83 @@ class StrategyBuilder {
         showNotification(`Added ${block.name}`, 'success');
     }
 
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Check if clicked on a port
+        const portInfo = this.getPortAt(x, y);
+        if (portInfo) {
+            this.connectionStart = portInfo;
+            this.tempConnection = { from: portInfo, to: { x, y } };
+            return;
+        }
+
+        // Check if clicked on a block
+        const clickedBlock = this.blocks.find(block =>
+            x >= block.x && x <= block.x + block.width &&
+            y >= block.y && y <= block.y + block.height
+        );
+
+        if (clickedBlock) {
+            this.isDraggingBlock = true;
+            this.draggedBlock = clickedBlock;
+            this.offset = {
+                x: x - clickedBlock.x,
+                y: y - clickedBlock.y
+            };
+        }
+    }
+
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Update temporary connection
+        if (this.tempConnection) {
+            this.tempConnection.to = { x, y };
+            this.redraw();
+            return;
+        }
+
+        // Drag block
+        if (this.isDraggingBlock && this.draggedBlock) {
+            this.draggedBlock.x = x - this.offset.x;
+            this.draggedBlock.y = y - this.offset.y;
+            this.redraw();
+        }
+    }
+
+    handleMouseUp(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Complete connection
+        if (this.connectionStart) {
+            const portInfo = this.getPortAt(x, y);
+            if (portInfo && this.canConnect(this.connectionStart, portInfo)) {
+                this.addConnection(this.connectionStart, portInfo);
+            }
+            this.connectionStart = null;
+            this.tempConnection = null;
+            this.redraw();
+            return;
+        }
+
+        // Stop dragging
+        if (this.isDraggingBlock) {
+            this.isDraggingBlock = false;
+            this.draggedBlock = null;
+        }
+    }
+
     handleCanvasClick(e) {
+        // Only handle selection if not dragging
+        if (this.isDraggingBlock || this.connectionStart) return;
+
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -293,6 +375,85 @@ class StrategyBuilder {
         } else {
             this.deselectBlock();
         }
+    }
+
+    getPortAt(x, y) {
+        const portRadius = 5;
+
+        for (const block of this.blocks) {
+            // Check output ports
+            for (let i = 0; i < block.outputs.length; i++) {
+                const portY = block.y + 40 + (i * 20);
+                const portX = block.x + block.width;
+
+                const dist = Math.sqrt((x - portX) ** 2 + (y - portY) ** 2);
+                if (dist <= portRadius + 5) {
+                    return {
+                        blockId: block.id,
+                        type: 'output',
+                        index: i,
+                        x: portX,
+                        y: portY,
+                        name: block.outputs[i].name
+                    };
+                }
+            }
+
+            // Check input ports
+            for (let i = 0; i < block.inputs.length; i++) {
+                const portY = block.y + 40 + (i * 20);
+                const portX = block.x;
+
+                const dist = Math.sqrt((x - portX) ** 2 + (y - portY) ** 2);
+                if (dist <= portRadius + 5) {
+                    return {
+                        blockId: block.id,
+                        type: 'input',
+                        index: i,
+                        x: portX,
+                        y: portY,
+                        name: block.inputs[i].name
+                    };
+                }
+            }
+        }
+
+        return null;
+    }
+
+    canConnect(from, to) {
+        // Can only connect output to input
+        if (from.type !== 'output' || to.type !== 'input') return false;
+
+        // Can't connect to same block
+        if (from.blockId === to.blockId) return false;
+
+        // Check if input already has a connection
+        const existingConnection = this.connections.find(c =>
+            c.to.blockId === to.blockId && c.to.index === to.index
+        );
+
+        if (existingConnection) return false;
+
+        return true;
+    }
+
+    addConnection(from, to) {
+        const connection = {
+            from: { blockId: from.blockId, index: from.index, x: from.x, y: from.y },
+            to: { blockId: to.blockId, index: to.index, x: to.x, y: to.y }
+        };
+
+        this.connections.push(connection);
+
+        // Update port connection status
+        const fromBlock = this.blocks.find(b => b.id === from.blockId);
+        const toBlock = this.blocks.find(b => b.id === to.blockId);
+
+        if (fromBlock) fromBlock.outputs[from.index].connected = true;
+        if (toBlock) toBlock.inputs[to.index].connected = true;
+
+        showNotification('Connection created', 'success');
     }
 
     selectBlock(block) {
@@ -380,11 +541,37 @@ class StrategyBuilder {
         // Draw grid
         this.drawGrid();
 
+        // Update connection positions
+        this.updateConnectionPositions();
+
         // Draw connections
         this.connections.forEach(conn => this.drawConnection(conn));
 
+        // Draw temporary connection
+        if (this.tempConnection) {
+            this.drawConnection(this.tempConnection, true);
+        }
+
         // Draw blocks
         this.blocks.forEach(block => this.drawBlock(block));
+    }
+
+    updateConnectionPositions() {
+        this.connections.forEach(conn => {
+            // Update from position
+            const fromBlock = this.blocks.find(b => b.id === conn.from.blockId);
+            if (fromBlock) {
+                conn.from.x = fromBlock.x + fromBlock.width;
+                conn.from.y = fromBlock.y + 40 + (conn.from.index * 20);
+            }
+
+            // Update to position
+            const toBlock = this.blocks.find(b => b.id === conn.to.blockId);
+            if (toBlock) {
+                conn.to.x = toBlock.x;
+                conn.to.y = toBlock.y + 40 + (conn.to.index * 20);
+            }
+        });
     }
 
     drawBlock(block) {
@@ -460,11 +647,12 @@ class StrategyBuilder {
         });
     }
 
-    drawConnection(conn) {
+    drawConnection(conn, isTemp = false) {
         const ctx = this.ctx;
 
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = isTemp ? '#64748b' : '#3b82f6';
+        ctx.lineWidth = isTemp ? 2 : 3;
+        ctx.setLineDash(isTemp ? [5, 5] : []);
         ctx.beginPath();
         ctx.moveTo(conn.from.x, conn.from.y);
 
@@ -476,6 +664,7 @@ class StrategyBuilder {
 
         ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, conn.to.x, conn.to.y);
         ctx.stroke();
+        ctx.setLineDash([]);
     }
 
     // Toolbar actions
@@ -491,8 +680,132 @@ class StrategyBuilder {
     }
 
     loadTemplate() {
-        showNotification('Template selector coming soon!', 'info');
-        // TODO: Show template modal
+        this.showTemplateSelector();
+    }
+
+    showTemplateSelector() {
+        const templatesHTML = Object.keys(STRATEGY_TEMPLATES).map(key => {
+            const template = STRATEGY_TEMPLATES[key];
+            const difficultyColor = {
+                'Beginner': 'var(--success)',
+                'Intermediate': 'var(--warning)',
+                'Advanced': 'var(--error)'
+            }[template.difficulty];
+
+            return `
+                <div class="template-card" onclick="strategyBuilder.applyTemplate('${key}')">
+                    <div class="template-card__header">
+                        <h4>${template.name}</h4>
+                        <span class="template-badge" style="background: ${difficultyColor}">${template.difficulty}</span>
+                    </div>
+                    <div class="template-card__category">${template.category}</div>
+                    <p class="template-card__description">${template.description}</p>
+                    <div class="template-card__stats">
+                        <span>📦 ${template.blocks.length} blocks</span>
+                        <span>🔗 ${template.connections.length} connections</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const modal = document.createElement('div');
+        modal.className = 'template-modal';
+        modal.innerHTML = `
+            <div class="template-modal__content">
+                <div class="template-modal__header">
+                    <h3>Strategy Templates</h3>
+                    <button class="modal-close" onclick="this.closest('.template-modal').remove()">×</button>
+                </div>
+                <div class="template-modal__body">
+                    <div class="template-grid">
+                        ${templatesHTML}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    }
+
+    applyTemplate(templateKey) {
+        const template = STRATEGY_TEMPLATES[templateKey];
+        if (!template) return;
+
+        if (this.blocks.length > 0 && !confirm('This will replace your current strategy. Continue?')) {
+            return;
+        }
+
+        // Clear current strategy
+        this.blocks = [];
+        this.connections = [];
+
+        // Add blocks from template
+        template.blocks.forEach(blockData => {
+            const templateDef = this.blockLibrary[blockData.category].find(b => b.id === blockData.type);
+            if (!templateDef) return;
+
+            const block = {
+                id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                type: blockData.type,
+                category: blockData.category,
+                name: templateDef.name,
+                icon: templateDef.icon,
+                x: blockData.x,
+                y: blockData.y,
+                width: 150,
+                height: 80,
+                inputs: templateDef.inputs.map(name => ({ name, connected: false })),
+                outputs: templateDef.outputs.map(name => ({ name, connected: false })),
+                properties: blockData.properties || {}
+            };
+
+            this.blocks.push(block);
+        });
+
+        // Add connections from template
+        template.connections.forEach(connData => {
+            const fromBlock = this.blocks[connData.from.blockIndex];
+            const toBlock = this.blocks[connData.to.blockIndex];
+
+            if (!fromBlock || !toBlock) return;
+
+            const fromY = fromBlock.y + 40 + (connData.from.outputIndex * 20);
+            const toY = toBlock.y + 40 + (connData.to.inputIndex * 20);
+
+            const connection = {
+                from: {
+                    blockId: fromBlock.id,
+                    index: connData.from.outputIndex,
+                    x: fromBlock.x + fromBlock.width,
+                    y: fromY
+                },
+                to: {
+                    blockId: toBlock.id,
+                    index: connData.to.inputIndex,
+                    x: toBlock.x,
+                    y: toY
+                }
+            };
+
+            this.connections.push(connection);
+
+            // Mark ports as connected
+            fromBlock.outputs[connData.from.outputIndex].connected = true;
+            toBlock.inputs[connData.to.inputIndex].connected = true;
+        });
+
+        // Close template modal
+        document.querySelector('.template-modal')?.remove();
+
+        this.redraw();
+        showNotification(`Loaded template: ${template.name}`, 'success');
     }
 
     save() {
