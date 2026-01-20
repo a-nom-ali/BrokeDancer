@@ -448,3 +448,101 @@
         width: 95%;
     }
 }
+
+/* Code Preview Modal */
+.code-preview-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.code-preview-modal__content {
+    background: var(--bg-secondary, #1e293b);
+    border-radius: 12px;
+    max-width: 1200px;
+    width: 95%;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--border-color, #334155);
+    display: flex;
+    flex-direction: column;
+}
+
+.code-preview-modal__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color, #334155);
+    background: var(--bg-tertiary, #334155);
+}
+
+.code-preview-modal__header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+}
+
+.code-preview-modal__actions {
+    display: flex;
+    gap: 8px;
+}
+
+.code-preview-modal__body {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+    background: #1e1e1e;
+}
+
+.code-preview__code {
+    margin: 0;
+    padding: 24px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 4;
+}
+
+.code-preview__code code {
+    display: block;
+}
+
+/* Python Syntax Highlighting (Simple) */
+.code-preview__code {
+    /* Keywords */
+    color: #d4d4d4;
+}
+
+/* Scrollbar for code preview */
+.code-preview-modal__body::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.code-preview-modal__body::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+.code-preview-modal__body::-webkit-scrollbar-thumb {
+    background: #424242;
+    border-radius: 6px;
+}
+
+.code-preview-modal__body::-webkit-scrollbar-thumb:hover {
+    background: #4e4e4e;
+}

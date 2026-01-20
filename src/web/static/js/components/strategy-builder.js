@@ -29,6 +29,15 @@ class StrategyBuilder {
         this.activeNodes = new Set(); // Nodes currently executing
         this.dataFlowParticles = []; // Animated particles showing data flow
 
+        // Zoom and pan controls
+        this.zoom = 1.0;
+        this.minZoom = 0.25;
+        this.maxZoom = 2.0;
+        this.zoomStep = 0.1;
+        this.panOffset = { x: 0, y: 0 };
+        this.isPanning = false;
+        this.panStart = { x: 0, y: 0 };
+
         // Block types library
         this.blockLibrary = {
             triggers: [
@@ -214,13 +223,19 @@ class StrategyBuilder {
 
     drawGrid() {
         const ctx = this.ctx;
-        const gridSize = 20;
+        const gridSize = 20 * this.zoom;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for grid
 
         ctx.strokeStyle = 'rgba(100, 116, 139, 0.1)';
         ctx.lineWidth = 1;
 
+        const offsetX = this.panOffset.x % gridSize;
+        const offsetY = this.panOffset.y % gridSize;
+
         // Vertical lines
-        for (let x = 0; x < this.canvas.width; x += gridSize) {
+        for (let x = offsetX; x < this.canvas.width; x += gridSize) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
             ctx.lineTo(x, this.canvas.height);
@@ -228,12 +243,14 @@ class StrategyBuilder {
         }
 
         // Horizontal lines
-        for (let y = 0; y < this.canvas.height; y += gridSize) {
+        for (let y = offsetY; y < this.canvas.height; y += gridSize) {
             ctx.beginPath();
             ctx.moveTo(0, y);
             ctx.lineTo(this.canvas.width, y);
             ctx.stroke();
         }
+
+        ctx.restore();
     }
 
     attachEventListeners() {
@@ -254,6 +271,9 @@ class StrategyBuilder {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
+
+        // Zoom with mouse wheel
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
@@ -323,6 +343,15 @@ class StrategyBuilder {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
+        // Middle mouse button or Shift+Left click for panning
+        if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            this.isPanning = true;
+            this.panStart = { x: x - this.panOffset.x, y: y - this.panOffset.y };
+            this.canvas.style.cursor = 'grabbing';
+            e.preventDefault();
+            return;
+        }
+
         // Check if clicked on a port
         const portInfo = this.getPortAt(x, y);
         if (portInfo) {
@@ -331,18 +360,19 @@ class StrategyBuilder {
             return;
         }
 
-        // Check if clicked on a block
+        // Check if clicked on a block (use canvas coordinates)
+        const canvasCoords = this.screenToCanvas(x, y);
         const clickedBlock = this.blocks.find(block =>
-            x >= block.x && x <= block.x + block.width &&
-            y >= block.y && y <= block.y + block.height
+            canvasCoords.x >= block.x && canvasCoords.x <= block.x + block.width &&
+            canvasCoords.y >= block.y && canvasCoords.y <= block.y + block.height
         );
 
         if (clickedBlock) {
             this.isDraggingBlock = true;
             this.draggedBlock = clickedBlock;
             this.offset = {
-                x: x - clickedBlock.x,
-                y: y - clickedBlock.y
+                x: canvasCoords.x - clickedBlock.x,
+                y: canvasCoords.y - clickedBlock.y
             };
         }
     }
@@ -352,6 +382,14 @@ class StrategyBuilder {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
+        // Handle panning
+        if (this.isPanning) {
+            this.panOffset.x = x - this.panStart.x;
+            this.panOffset.y = y - this.panStart.y;
+            this.redraw();
+            return;
+        }
+
         // Update temporary connection
         if (this.tempConnection) {
             this.tempConnection.to = { x, y };
@@ -359,10 +397,11 @@ class StrategyBuilder {
             return;
         }
 
-        // Drag block
+        // Drag block (use canvas coordinates)
         if (this.isDraggingBlock && this.draggedBlock) {
-            this.draggedBlock.x = x - this.offset.x;
-            this.draggedBlock.y = y - this.offset.y;
+            const canvasCoords = this.screenToCanvas(x, y);
+            this.draggedBlock.x = canvasCoords.x - this.offset.x;
+            this.draggedBlock.y = canvasCoords.y - this.offset.y;
             this.redraw();
         }
     }
@@ -371,6 +410,13 @@ class StrategyBuilder {
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+
+        // Stop panning
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.canvas.style.cursor = 'crosshair';
+            return;
+        }
 
         // Complete connection
         if (this.connectionStart) {
@@ -458,8 +504,51 @@ class StrategyBuilder {
         }
     }
 
+    handleWheel(e) {
+        e.preventDefault();
+
+        const delta = e.deltaY > 0 ? -this.zoomStep : this.zoomStep;
+        const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom + delta));
+
+        if (newZoom !== this.zoom) {
+            // Zoom towards mouse position
+            const rect = this.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Adjust pan offset to zoom towards mouse
+            const zoomRatio = newZoom / this.zoom;
+            this.panOffset.x = mouseX - (mouseX - this.panOffset.x) * zoomRatio;
+            this.panOffset.y = mouseY - (mouseY - this.panOffset.y) * zoomRatio;
+
+            this.zoom = newZoom;
+            this.redraw();
+
+            // Update zoom display
+            const zoomPercent = Math.round(this.zoom * 100);
+            showNotification(`🔍 Zoom: ${zoomPercent}%`, 'info');
+        }
+    }
+
+    screenToCanvas(screenX, screenY) {
+        // Convert screen coordinates to canvas coordinates (accounting for zoom and pan)
+        return {
+            x: (screenX - this.panOffset.x) / this.zoom,
+            y: (screenY - this.panOffset.y) / this.zoom
+        };
+    }
+
+    canvasToScreen(canvasX, canvasY) {
+        // Convert canvas coordinates to screen coordinates
+        return {
+            x: canvasX * this.zoom + this.panOffset.x,
+            y: canvasY * this.zoom + this.panOffset.y
+        };
+    }
+
     getPortAt(x, y) {
         const portRadius = 5;
+        const coords = this.screenToCanvas(x, y);
 
         for (const block of this.blocks) {
             // Check output ports
@@ -467,14 +556,15 @@ class StrategyBuilder {
                 const portY = block.y + 40 + (i * 20);
                 const portX = block.x + block.width;
 
-                const dist = Math.sqrt((x - portX) ** 2 + (y - portY) ** 2);
+                const dist = Math.sqrt((coords.x - portX) ** 2 + (coords.y - portY) ** 2);
                 if (dist <= portRadius + 5) {
+                    const screenPos = this.canvasToScreen(portX, portY);
                     return {
                         blockId: block.id,
                         type: 'output',
                         index: i,
-                        x: portX,
-                        y: portY,
+                        x: screenPos.x,
+                        y: screenPos.y,
                         name: block.outputs[i].name
                     };
                 }
@@ -485,14 +575,15 @@ class StrategyBuilder {
                 const portY = block.y + 40 + (i * 20);
                 const portX = block.x;
 
-                const dist = Math.sqrt((x - portX) ** 2 + (y - portY) ** 2);
+                const dist = Math.sqrt((coords.x - portX) ** 2 + (coords.y - portY) ** 2);
                 if (dist <= portRadius + 5) {
+                    const screenPos = this.canvasToScreen(portX, portY);
                     return {
                         blockId: block.id,
                         type: 'input',
                         index: i,
-                        x: portX,
-                        y: portY,
+                        x: screenPos.x,
+                        y: screenPos.y,
                         name: block.inputs[i].name
                     };
                 }
@@ -621,8 +712,13 @@ class StrategyBuilder {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw grid
+        // Draw grid (no transform)
         this.drawGrid();
+
+        // Apply zoom and pan transformations
+        this.ctx.save();
+        this.ctx.translate(this.panOffset.x, this.panOffset.y);
+        this.ctx.scale(this.zoom, this.zoom);
 
         // Update connection positions
         this.updateConnectionPositions();
@@ -640,6 +736,9 @@ class StrategyBuilder {
 
         // Draw blocks
         this.blocks.forEach(block => this.drawBlock(block));
+
+        // Restore context
+        this.ctx.restore();
     }
 
     drawDataFlowParticles() {
@@ -1120,8 +1219,71 @@ class StrategyBuilder {
     generateCode() {
         if (!this.validate()) return;
 
-        showNotification('Code generation coming soon!', 'info');
-        // TODO: Generate Python strategy code from blocks
+        try {
+            if (typeof codeGenerator === 'undefined') {
+                throw new Error('Code generator not loaded. Please refresh the page.');
+            }
+
+            const workflow = {
+                name: this.strategyName || 'MyStrategy',
+                blocks: this.blocks,
+                connections: this.connections
+            };
+
+            const pythonCode = codeGenerator.generate(workflow);
+            this.showCodePreview(pythonCode);
+            showNotification('✅ Code generated successfully!', 'success');
+        } catch (error) {
+            console.error('Code generation error:', error);
+            showNotification(`❌ Code generation failed: ${error.message}`, 'error');
+        }
+    }
+
+    showCodePreview(code) {
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'code-preview-modal';
+        modal.innerHTML = `
+            <div class="code-preview-modal__content">
+                <div class="code-preview-modal__header">
+                    <h3>Generated Python Strategy</h3>
+                    <div class="code-preview-modal__actions">
+                        <button class="toolbar__btn" onclick="codePreviewCopy()">📋 Copy</button>
+                        <button class="toolbar__btn" onclick="codePreviewDownload()">💾 Download</button>
+                        <button class="toolbar__btn" onclick="codePreviewClose()">✕ Close</button>
+                    </div>
+                </div>
+                <div class="code-preview-modal__body">
+                    <pre class="code-preview__code"><code class="language-python">${this.escapeHtml(code)}</code></pre>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Store code for copy/download
+        window._generatedCode = code;
+
+        // Click outside to close
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeCodePreview();
+            }
+        });
+    }
+
+    closeCodePreview() {
+        const modal = document.querySelector('.code-preview-modal');
+        if (modal) {
+            modal.remove();
+        }
+        window._generatedCode = null;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     deploy() {
@@ -1135,15 +1297,42 @@ class StrategyBuilder {
 
     // Canvas controls
     zoomIn() {
-        showNotification('Zoom coming soon!', 'info');
+        const newZoom = Math.min(this.maxZoom, this.zoom + this.zoomStep);
+        if (newZoom !== this.zoom) {
+            // Zoom towards center
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            const zoomRatio = newZoom / this.zoom;
+            this.panOffset.x = centerX - (centerX - this.panOffset.x) * zoomRatio;
+            this.panOffset.y = centerY - (centerY - this.panOffset.y) * zoomRatio;
+
+            this.zoom = newZoom;
+            this.redraw();
+            showNotification(`🔍 Zoom: ${Math.round(this.zoom * 100)}%`, 'info');
+        }
     }
 
     zoomOut() {
-        showNotification('Zoom coming soon!', 'info');
+        const newZoom = Math.max(this.minZoom, this.zoom - this.zoomStep);
+        if (newZoom !== this.zoom) {
+            // Zoom towards center
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            const zoomRatio = newZoom / this.zoom;
+            this.panOffset.x = centerX - (centerX - this.panOffset.x) * zoomRatio;
+            this.panOffset.y = centerY - (centerY - this.panOffset.y) * zoomRatio;
+
+            this.zoom = newZoom;
+            this.redraw();
+            showNotification(`🔍 Zoom: ${Math.round(this.zoom * 100)}%`, 'info');
+        }
     }
 
     resetZoom() {
+        this.zoom = 1.0;
+        this.panOffset = { x: 0, y: 0 };
         this.redraw();
+        showNotification('🔍 Zoom reset to 100%', 'info');
     }
 
     clearCanvas() {

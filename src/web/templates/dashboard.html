@@ -1042,8 +1042,42 @@
     <script src="/static/js/components/performance-chart.js"></script>
     <script src="/static/js/components/event-feed.js"></script>
     <script src="/static/js/components/strategy-templates.js"></script>
+    <script src="/static/js/components/code-generator.js"></script>
     <script src="/static/js/components/workflow-executor.js"></script>
     <script src="/static/js/components/strategy-builder.js"></script>
     <script src="/static/js/components/strategy-builder-modal.js"></script>
+    <script>
+        // Global helper functions for code preview modal
+        function codePreviewCopy() {
+            if (window._generatedCode) {
+                navigator.clipboard.writeText(window._generatedCode).then(() => {
+                    showNotification('📋 Code copied to clipboard!', 'success');
+                }).catch(err => {
+                    showNotification('❌ Failed to copy code', 'error');
+                });
+            }
+        }
+
+        function codePreviewDownload() {
+            if (window._generatedCode) {
+                const blob = new Blob([window._generatedCode], { type: 'text/x-python' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `strategy_${new Date().toISOString().split('T')[0]}.py`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showNotification('💾 Strategy downloaded!', 'success');
+            }
+        }
+
+        function codePreviewClose() {
+            const modal = document.querySelector('.code-preview-modal');
+            if (modal) {
+                modal.remove();
+            }
+            window._generatedCode = null;
+        }
+    </script>
 </body>
 </html>
