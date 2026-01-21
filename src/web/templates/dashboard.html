@@ -646,47 +646,15 @@
         // WebSocket connection
         const socket = io();
 
-        // Chart
+        // Chart (legacy - now using performanceChart)
         let profitChart;
         const profitData = [];
 
         // Initialize chart
         function initChart() {
-            const ctx = document.getElementById('profitChart').getContext('2d');
-            profitChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Cumulative Profit',
-                        data: profitData,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: '#e2e8f0'
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#334155' }
-                        },
-                        x: {
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#334155' }
-                        }
-                    }
-                }
-            });
+            // Chart initialization moved to performanceChart component
+            // This function is kept for backwards compatibility but does nothing
+            return;
         }
 
 
@@ -753,15 +721,6 @@
 
         socket.on('trade_executed', (trade) => {
             showNotification(`Trade executed: ${trade.side} ${trade.size} @ $${trade.price}`, 'success');
-
-            // Update chart
-            profitData.push(trade.profit || 0);
-            profitChart.data.labels.push(new Date(trade.timestamp).toLocaleTimeString());
-            if (profitData.length > 50) {
-                profitData.shift();
-                profitChart.data.labels.shift();
-            }
-            profitChart.update();
 
             // Update performance chart
             if (performanceChart) {
@@ -836,14 +795,9 @@
             // Update icon
             document.getElementById('themeIcon').textContent = newTheme === 'light' ? '🌙' : '☀️';
 
-            // Update chart colors
-            if (profitChart) {
-                profitChart.options.scales.y.ticks.color = getComputedStyle(document.documentElement).getPropertyValue('--text-tertiary');
-                profitChart.options.scales.y.grid.color = getComputedStyle(document.documentElement).getPropertyValue('--border-color');
-                profitChart.options.scales.x.ticks.color = getComputedStyle(document.documentElement).getPropertyValue('--text-tertiary');
-                profitChart.options.scales.x.grid.color = getComputedStyle(document.documentElement).getPropertyValue('--border-color');
-                profitChart.options.plugins.legend.labels.color = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary');
-                profitChart.update();
+            // Update performance chart colors if needed
+            if (performanceChart && performanceChart.updateTheme) {
+                performanceChart.updateTheme();
             }
         }
 
