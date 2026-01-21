@@ -2,6 +2,36 @@
 
 This guide provides specific implementation details for the top-priority UX enhancements.
 
+## ✅ Completed Features
+
+The following features have been successfully implemented and are available in the current version:
+
+### 1. Python Code Generation ✅
+- **File**: `src/web/static/js/components/code-generator.js` (464 lines)
+- **Features**: Converts visual workflows to executable Python trading strategies
+- **Supported Blocks**: 7 trigger types, 6 condition types, 4 action types, 4 risk management types
+- **Output**: Complete Python class with proper imports, methods, and error handling
+
+### 2. Canvas Zoom & Pan Controls ✅
+- **File**: `src/web/static/js/components/strategy-builder.js` (1105 lines)
+- **Features**: Mouse wheel zoom (25%-200%), middle-click pan, coordinate transformation
+- **User Experience**: Smooth zoom towards mouse position, pan with drag
+
+### 3. Comprehensive Bot Configuration Editor ✅
+- **Files**: `src/web/static/js/components/bot-config-modal.js`, `src/web/static/css/bot-config-modal.css`
+- **Sections**: Basic config, risk management, trading parameters, notifications, advanced settings
+- **Features**: Collapsible sections, form validation, JSON custom parameters, dry run mode
+
+### 4. Profile Editing with Credential Management ✅
+- **File**: `src/web/static/js/components/profile-modal.js` (433 lines)
+- **Security**: Password visibility toggle, security notices, partial credential updates
+- **Features**: Edit existing profiles, credential encryption, connection testing, RPC configuration
+
+### 5. Backend Metrics & Health Monitoring ✅
+- **File**: `src/web/server.py` (updated)
+- **Metrics**: Balance sufficiency, error rate calculation (last 20 trades), provider latency measurement
+- **Health Status**: Healthy/Warning/Critical based on balance, error rate, and bot status
+
 ---
 
 ## 🚀 Phase 1: Multi-Bot Status Cards & Live Updates
@@ -989,6 +1019,254 @@ def api_validate_credentials():
 
 ---
 
+## 📝 Code Generation Architecture
+
+### Overview
+The code generation system converts visual workflow definitions into executable Python trading strategy classes.
+
+### Key Components
+
+#### 1. CodeGenerator Class
+**Location**: `src/web/static/js/components/code-generator.js`
+
+**Main Methods**:
+```javascript
+generate(workflow)           // Main entry point
+addImports()                 // Add required Python imports
+generateClassHeader(name)    // Create strategy class definition
+generateTriggers(workflow)   // Convert trigger blocks to methods
+generateConditions(workflow) // Convert condition blocks to methods
+generateActions(workflow)    // Convert action blocks to methods
+generateRiskManagement(wf)   // Convert risk mgmt blocks to methods
+generateExecuteMethod(wf)    // Create main execute() orchestration
+```
+
+**Supported Block Types**:
+
+**Triggers (7 types)**:
+- `price_cross`: Price crosses threshold
+- `volume_spike`: Volume exceeds threshold
+- `time_trigger`: Time-based execution
+- `rsi_signal`: RSI overbought/oversold
+- `webhook`: External webhook trigger
+- `event_listener`: Market event listener
+- `manual_trigger`: Manual execution
+
+**Conditions (6 types)**:
+- `price_above`: Price comparison
+- `price_below`: Price comparison
+- `volume_check`: Volume threshold
+- `balance_check`: Balance verification
+- `technical_indicator`: Custom indicator
+- `time_window`: Time-based condition
+
+**Actions (4 types)**:
+- `market_order`: Immediate execution
+- `limit_order`: Price-limited order
+- `close_position`: Close existing position
+- `log_event`: Event logging
+
+**Risk Management (4 types)**:
+- `stop_loss`: Automatic stop loss
+- `take_profit`: Automatic take profit
+- `position_limit`: Maximum position size
+- `daily_loss_limit`: Maximum daily loss
+
+#### 2. Integration with Strategy Builder
+**Location**: `src/web/static/js/components/strategy-builder.js`
+
+**Generate Code Flow**:
+```javascript
+// User clicks "Generate Code" button
+generateCode() {
+    // 1. Validate workflow
+    if (!this.validate()) return;
+
+    // 2. Prepare workflow data
+    const workflow = {
+        name: this.strategyName || 'MyStrategy',
+        blocks: this.blocks,
+        connections: this.connections
+    };
+
+    // 3. Generate Python code
+    const pythonCode = codeGenerator.generate(workflow);
+
+    // 4. Show in modal
+    this.showCodePreview(pythonCode);
+}
+```
+
+#### 3. Code Preview Modal
+**Location**: `src/web/static/css/strategy-builder.css` (lines 452-548)
+
+**Features**:
+- Syntax-highlighted code display
+- Copy to clipboard functionality
+- Download as .py file
+- Full-screen preview
+- Monospace font for readability
+
+### Example Generated Code
+
+**Input Workflow**:
+- Trigger: RSI Signal (RSI < 30)
+- Condition: Price Above $50
+- Action: Market Order (Buy $100)
+- Risk: Stop Loss 5%
+
+**Output Python** (excerpt):
+```python
+from typing import Dict, Any
+import asyncio
+
+class MyStrategy:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.provider = config.get('provider')
+
+    async def check_rsi_signal_trigger(self):
+        """Check RSI signal trigger."""
+        rsi = await self.provider.get_rsi()
+        threshold = 30
+        return rsi < threshold
+
+    async def check_price_above_condition(self):
+        """Check price above condition."""
+        price = await self.provider.get_current_price()
+        threshold = 50
+        return price > threshold
+
+    async def execute_market_order(self):
+        """Execute market order action."""
+        order = await self.provider.create_market_order(
+            side='buy',
+            size=100
+        )
+        return order
+
+    async def execute(self):
+        """Main execution loop."""
+        # Check triggers
+        if not await self.check_rsi_signal_trigger():
+            return
+
+        # Check conditions
+        if not await self.check_price_above_condition():
+            return
+
+        # Execute actions
+        await self.execute_market_order()
+```
+
+### Usage Examples
+
+#### From Web Dashboard:
+1. Open Strategy Builder: `http://localhost:8080/strategy-builder`
+2. Drag blocks onto canvas
+3. Connect blocks with arrows
+4. Click "Generate Code" button
+5. Copy or download generated Python file
+6. Place in `src/strategies/` directory
+
+#### Programmatic Usage:
+```javascript
+const codeGenerator = new CodeGenerator();
+
+const workflow = {
+    name: 'MomentumStrategy',
+    blocks: [
+        { id: '1', type: 'trigger', subtype: 'price_cross', params: { threshold: 100 } },
+        { id: '2', type: 'action', subtype: 'market_order', params: { side: 'buy', size: 50 } }
+    ],
+    connections: [
+        { from: '1', to: '2' }
+    ]
+};
+
+const pythonCode = codeGenerator.generate(workflow);
+console.log(pythonCode);
+```
+
+---
+
+## 🎨 Canvas Zoom & Pan Implementation
+
+### Transform Matrix System
+**Location**: `src/web/static/js/components/strategy-builder.js`
+
+**Core Concepts**:
+```javascript
+// State variables
+this.zoom = 1.0;              // Current zoom level (0.25 to 2.0)
+this.panOffset = { x: 0, y: 0 }; // Pan offset in pixels
+this.isPanning = false;        // Panning state
+```
+
+**Coordinate Transformation**:
+```javascript
+// Convert screen coordinates to canvas coordinates
+screenToCanvas(screenX, screenY) {
+    return {
+        x: (screenX - this.panOffset.x) / this.zoom,
+        y: (screenY - this.panOffset.y) / this.zoom
+    };
+}
+
+// Convert canvas coordinates to screen coordinates
+canvasToScreen(canvasX, canvasY) {
+    return {
+        x: canvasX * this.zoom + this.panOffset.x,
+        y: canvasY * this.zoom + this.panOffset.y
+    };
+}
+```
+
+**Mouse Wheel Zoom**:
+```javascript
+handleWheel(e) {
+    e.preventDefault();
+
+    // Calculate new zoom level
+    const delta = e.deltaY > 0 ? -this.zoomStep : this.zoomStep;
+    const newZoom = Math.max(this.minZoom,
+                             Math.min(this.maxZoom, this.zoom + delta));
+
+    if (newZoom !== this.zoom) {
+        // Get mouse position relative to canvas
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Adjust pan offset to zoom towards mouse position
+        const zoomRatio = newZoom / this.zoom;
+        this.panOffset.x = mouseX - (mouseX - this.panOffset.x) * zoomRatio;
+        this.panOffset.y = mouseY - (mouseY - this.panOffset.y) * zoomRatio;
+
+        this.zoom = newZoom;
+        this.redraw();
+    }
+}
+```
+
+**Panning**:
+```javascript
+handleMouseMove(e) {
+    if (this.isPanning) {
+        const dx = e.clientX - this.panStart.x;
+        const dy = e.clientY - this.panStart.y;
+
+        this.panOffset.x += dx;
+        this.panOffset.y += dy;
+
+        this.panStart = { x: e.clientX, y: e.clientY };
+        this.redraw();
+    }
+}
+```
+
+---
+
 ## 📋 Next Steps
 
 1. **Install Dependencies**
@@ -1001,12 +1279,19 @@ def api_validate_credentials():
    - Open browser: `http://localhost:8080`
    - Create test bots and verify live updates
 
-3. **Add Profile UI**
-   - Create profile modal in `dashboard.html`
-   - Add profile switcher in header
-   - Implement setup wizard
+3. **Test Strategy Builder**
+   - Navigate to Strategy Builder
+   - Create a simple workflow
+   - Generate Python code
+   - Download and test strategy
 
-4. **Security Hardening**
+4. **Test Profile Management**
+   - Click profile icon in header
+   - Create new profile with credentials
+   - Test credential visibility toggle
+   - Test connection validation
+
+5. **Security Hardening**
    - Use environment-specific master passwords
    - Add 2FA for profile access
    - Implement audit logging
@@ -1015,8 +1300,22 @@ def api_validate_credentials():
 
 ## 🔗 Related Files
 
-- Backend: `src/web/server.py`
-- Frontend: `src/web/templates/dashboard.html`
-- Styles: `src/web/static/css/dashboard.css`
-- Components: `src/web/static/js/components/`
+### Backend
+- `src/web/server.py` - Main server with health metrics
+- `src/web/profile_manager.py` - Profile & credential management
+
+### Frontend Components
+- `src/web/static/js/components/code-generator.js` - Python code generation
+- `src/web/static/js/components/strategy-builder.js` - Visual builder with zoom/pan
+- `src/web/static/js/components/bot-config-modal.js` - Bot configuration editor
+- `src/web/static/js/components/profile-modal.js` - Profile management UI
+
+### Styles
+- `src/web/static/css/dashboard.css` - Main dashboard styles
+- `src/web/static/css/bot-config-modal.css` - Bot config modal styles
+- `src/web/static/css/profile-modal.css` - Profile modal styles
+- `src/web/static/css/strategy-builder.css` - Strategy builder styles
+
+### Templates
+- `src/web/templates/dashboard.html` - Main dashboard template
 

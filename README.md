@@ -104,12 +104,23 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
 
 **Real-time monitoring and control** with WebSocket updates:
 
+### Core Features
 - 📊 Live statistics (trades, win rate, profit/loss, balance)
 - 📈 Performance chart with cumulative profits
 - 🎮 Start/Stop/Pause controls
 - 🔔 Trade execution notifications
 - 📋 Recent trade history
 - ⚙️ Strategy & provider selection
+
+### New UX Enhancements ✨
+- 🤖 **Multi-Bot Management** - Individual status cards for each bot with real-time updates
+- 💰 **Live Profit Tracking** - Sparkline charts showing profit trends per bot
+- 🏥 **Health Monitoring** - API status, balance sufficiency, and error rate tracking
+- 🎨 **Visual Strategy Builder** - Drag-and-drop interface for creating trading strategies
+- 🔐 **Profile Management** - Securely manage multiple trading profiles with encrypted credentials
+- 🔌 **Provider Health Dashboard** - Real-time latency monitoring and status for all exchanges
+- 📊 **Comprehensive Bot Config** - Full configuration editor with risk management settings
+- 🐍 **Code Generation** - Convert visual workflows to executable Python strategies
 
 **Start Dashboard:**
 ```bash
@@ -313,7 +324,7 @@ MAX_BALANCE_UTILIZATION=0.7
 ## 🚀 Advanced Features
 
 ### Multi-Bot Management
-Run multiple strategies simultaneously:
+Run multiple strategies simultaneously with visual monitoring:
 ```python
 from src.web import MultiBotManager
 
@@ -322,6 +333,44 @@ bot_1 = manager.create_bot("cross_exchange", "binance", {...})
 bot_2 = manager.create_bot("funding_rate", "bybit", {...})
 manager.start_bot(bot_1)
 manager.start_bot(bot_2)
+```
+
+**Web Dashboard Features:**
+- Individual bot status cards with real-time profit tracking
+- Health indicators (API connection, balance sufficiency, error rate)
+- Sparkline charts showing profit trends
+- Quick action buttons (pause/stop/configure)
+- Per-bot and aggregated performance metrics
+
+### Visual Strategy Builder
+Create trading strategies without coding:
+```bash
+# Access via web dashboard
+http://localhost:8080/strategy-builder
+
+# Features:
+- Drag-and-drop canvas with zoom/pan controls
+- 7 trigger types (price cross, volume spike, RSI, etc.)
+- 6 condition types (price comparison, technical indicators)
+- 4 action types (market/limit orders)
+- 4 risk management blocks (stop loss, take profit, etc.)
+- Python code generation from visual workflows
+- Template library with pre-built strategies
+```
+
+### Profile Management
+Securely manage multiple trading configurations:
+```bash
+# Create profiles via web dashboard
+http://localhost:8080 → Click profile icon
+
+# Features:
+- AES-256 encrypted credential storage
+- Multiple profiles (production, staging, test)
+- One-click profile switching
+- Credential visibility toggle
+- Connection testing before activation
+- Separate configuration per profile (RPC, gas limits, etc.)
 ```
 
 ### Backtesting
