@@ -280,6 +280,78 @@ class TradingBotWebServer:
                 logger.error(f"Error creating bot: {e}")
                 return jsonify({"error": str(e)}), 500
 
+        @self.app.route('/api/bots/workflow', methods=['POST'])
+        def api_create_bot_from_workflow():
+            """Create new bot from workflow definition."""
+            data = request.json or {}
+
+            name = data.get('name')
+            description = data.get('description', '')
+            workflow = data.get('workflow')
+            config = data.get('config', {})
+            auto_start = data.get('auto_start', False)
+
+            if not name:
+                return jsonify({"error": "name required"}), 400
+
+            if not workflow:
+                return jsonify({"error": "workflow required"}), 400
+
+            try:
+                # Extract primary provider from workflow
+                provider_blocks = [
+                    block for block in workflow.get('blocks', [])
+                    if block.get('category') == 'providers'
+                ]
+
+                if not provider_blocks:
+                    return jsonify({"error": "workflow must have at least one provider"}), 400
+
+                # Use first provider as primary
+                primary_provider = provider_blocks[0]['type']
+
+                # Create bot config with workflow embedded
+                bot_config = {
+                    **config,
+                    'workflow': workflow,
+                    'workflow_based': True,
+                    'description': description
+                }
+
+                # Create bot using workflow strategy
+                bot_id = self.bot_manager.create_bot(
+                    strategy='workflow',  # Special strategy type for workflows
+                    provider=primary_provider,
+                    config=bot_config
+                )
+
+                # Update bot name in database if supported
+                # (This would require bot_manager to support custom names)
+
+                # Start bot if requested
+                if auto_start:
+                    self.bot_manager.start_bot(bot_id)
+
+                # Emit WebSocket event
+                self.socketio.emit('bot_created', {
+                    'bot_id': bot_id,
+                    'name': name,
+                    'strategy': 'workflow',
+                    'provider': primary_provider,
+                    'workflow_based': True,
+                    'timestamp': datetime.now().isoformat()
+                })
+
+                return jsonify({
+                    "bot_id": bot_id,
+                    "status": "created",
+                    "auto_started": auto_start
+                })
+
+            except Exception as e:
+                logger.error(f"Error creating bot from workflow: {e}", exc_info=True)
+                return jsonify({"error": str(e)}), 500
+
         @self.app.route('/api/bots/<bot_id>/start', methods=['POST'])
         def api_start_bot(bot_id):
             """Start specific bot."""

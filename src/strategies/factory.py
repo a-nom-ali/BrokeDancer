@@ -17,6 +17,7 @@ from .funding_rate_arbitrage import FundingRateArbitrageStrategy
 from .statistical_arbitrage import StatisticalArbitrageStrategy
 from .basis_trading import BasisTradingStrategy
 from .liquidation_sniping import LiquidationSnipingStrategy
+from .workflow_strategy import WorkflowStrategy
 from ..providers.base import BaseProvider
 
 logger = logging.getLogger(__name__)
@@ -210,6 +211,14 @@ def create_strategy(
             config=config
         )
 
+    elif strategy_name_lower == "workflow":
+        logger.info("🤖 Creating Workflow strategy")
+        logger.info("📊 Executing visual workflow definition")
+        return WorkflowStrategy(
+            provider=provider,
+            config=config
+        )
+
     # Placeholder for future strategies
     elif strategy_name_lower == "copytrading":
         raise NotImplementedError(
@@ -245,5 +254,6 @@ def get_supported_strategies() -> Dict[str, str]:
         "liquidation": "Snipe liquidation cascades on derivatives exchanges (2-10% ROI, HIGH RISK)",
         "market_making": "Post bid/ask spreads to capture liquidity (80-200% APY)",
         "momentum": "Follow strong price trends with momentum indicators (5-30% per trade)",
+        "workflow": "Execute custom visual workflow from strategy builder (user-defined ROI)",
         "copy_trading": "Mirror another trader's positions (coming soon)",
     }

@@ -172,9 +172,20 @@ class StrategyBuilder {
         this.init();
     }
 
-    init() {
+    async init() {
         this.render();
         this.attachEventListeners();
+
+        // Check if bot_id parameter exists in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const botId = urlParams.get('bot_id');
+
+        if (botId) {
+            // Load workflow from bot after a short delay to ensure canvas is ready
+            setTimeout(async () => {
+                await this.loadWorkflowFromBot(botId);
+            }, 100);
+        }
     }
 
     render() {
@@ -216,8 +227,8 @@ class StrategyBuilder {
                         <button class="toolbar__btn" onclick="strategyBuilder.generateCode()" title="Generate Code">
                             🔧 Generate
                         </button>
-                        <button class="toolbar__btn toolbar__btn--primary" onclick="strategyBuilder.deploy()" title="Deploy Strategy">
-                            🚀 Deploy
+                        <button class="toolbar__btn toolbar__btn--primary" onclick="strategyBuilder.saveAsBot()" title="Save as Bot">
+                            🤖 Save as Bot
                         </button>
                     </div>
                 </div>
@@ -1502,6 +1513,231 @@ class StrategyBuilder {
         }
     }
 
+    async loadWorkflowFromBot(botId) {
+        try {
+            showNotification('Loading bot workflow...', 'info');
+
+            // Fetch bot data
+            const response = await fetch(`/api/bots/${botId}`);
+            if (!response.ok) throw new Error('Failed to load bot');
+
+            const bot = await response.json();
+
+            // Check if bot has workflow data
+            if (!bot.config || !bot.config.workflow) {
+                throw new Error('This bot does not have workflow data');
+            }
+
+            // Confirm if canvas is not empty
+            if (this.blocks.length > 0) {
+                if (!confirm('This will replace your current workflow. Continue?')) {
+                    return;
+                }
+            }
+
+            // Load the workflow
+            const workflow = bot.config.workflow;
+            this.blocks = JSON.parse(JSON.stringify(workflow.blocks));
+            this.connections = JSON.parse(JSON.stringify(workflow.connections));
+            this.strategyName = bot.name || `Bot ${botId}`;
+            this.editingBotId = botId;  // Store bot ID for updating
+
+            // Redraw canvas
+            this.redraw();
+            this.saveState();
+
+            showNotification(`✅ Loaded workflow from bot: ${this.strategyName}`, 'success');
+        } catch (error) {
+            console.error('Error loading workflow from bot:', error);
+            showNotification(`❌ Failed to load workflow: ${error.message}`, 'error');
+        }
+    }
+
+    async saveAsBot() {
+        // Validate workflow first
+        if (!this.validate()) {
+            return;
+        }
+
+        // Check if workflow has at least one provider
+        const providers = this.blocks.filter(b => b.category === 'providers');
+        if (providers.length === 0) {
+            showNotification('❌ Workflow must have at least one provider', 'error');
+            return;
+        }
+
+        // Show bot configuration modal
+        this.showBotConfigModal();
+    }
+
+    showBotConfigModal() {
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'bot-config-modal';
+
+        // Get providers from workflow
+        const workflowProviders = this.blocks
+            .filter(b => b.category === 'providers')
+            .map(b => b.type);
+        const uniqueProviders = [...new Set(workflowProviders)];
+
+        modal.innerHTML = `
+            <div class="bot-config-modal__content">
+                <div class="bot-config-modal__header">
+                    <h3>🤖 Save as Bot</h3>
+                    <button class="toolbar__btn" onclick="this.closest('.bot-config-modal').remove()">✕ Close</button>
+                </div>
+                <div class="bot-config-modal__body">
+                    <form id="saveBotForm" onsubmit="strategyBuilder.createBotFromWorkflow(event)">
+                        <div class="form-group">
+                            <label>Bot Name *</label>
+                            <input type="text" name="bot_name" required placeholder="My Trading Bot" value="${this.strategyName || ''}">
+                            <small>Descriptive name for your bot</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea name="description" placeholder="Describe what this bot does..." rows="3"></textarea>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Workflow Info</h4>
+                            <div class="workflow-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">Providers:</span>
+                                    <span class="stat-value">${uniqueProviders.map(p => {
+                                        const providerInfo = this.blockLibrary.providers.find(bp => bp.id === p);
+                                        return providerInfo ? `${providerInfo.icon} ${providerInfo.name}` : p;
+                                    }).join(', ')}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Total Blocks:</span>
+                                    <span class="stat-value">${this.blocks.length}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Connections:</span>
+                                    <span class="stat-value">${this.connections.length}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Risk Management</h4>
+                            <div class="form-row">
+                                <div class="form-col">
+                                    <label>Max Daily Loss ($)</label>
+                                    <input type="number" name="max_daily_loss" placeholder="100" step="0.01" min="0">
+                                </div>
+                                <div class="form-col">
+                                    <label>Max Trades/Day</label>
+                                    <input type="number" name="max_trades_per_day" placeholder="50" min="1">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-col">
+                                    <label>Position Size ($)</label>
+                                    <input type="number" name="position_size" placeholder="10" step="0.01" min="0.01">
+                                    <small>Default bet amount per trade</small>
+                                </div>
+                                <div class="form-col">
+                                    <label>Scan Interval (seconds)</label>
+                                    <input type="number" name="scan_interval" placeholder="5" min="1" value="5">
+                                    <small>How often to check for opportunities</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Execution Options</h4>
+                            <div class="form-checkbox">
+                                <input type="checkbox" id="dry_run" name="dry_run" checked>
+                                <label for="dry_run">Start in Dry Run mode (simulation only)</label>
+                            </div>
+                            <div class="form-checkbox">
+                                <input type="checkbox" id="auto_start" name="auto_start">
+                                <label for="auto_start">Start bot immediately after creation</label>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn--secondary" onclick="this.closest('.bot-config-modal').remove()">Cancel</button>
+                            <button type="submit" class="btn btn--primary">💾 Create Bot</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    }
+
+    async createBotFromWorkflow(event) {
+        event.preventDefault();
+
+        const form = event.target;
+        const formData = new FormData(form);
+
+        // Collect form data
+        const botConfig = {
+            name: formData.get('bot_name'),
+            description: formData.get('description') || '',
+            workflow: {
+                blocks: this.blocks,
+                connections: this.connections
+            },
+            config: {
+                max_daily_loss: parseFloat(formData.get('max_daily_loss')) || null,
+                max_trades_per_day: parseInt(formData.get('max_trades_per_day')) || null,
+                position_size: parseFloat(formData.get('position_size')) || 10,
+                scan_interval: parseInt(formData.get('scan_interval')) || 5,
+                dry_run: formData.get('dry_run') === 'on'
+            },
+            auto_start: formData.get('auto_start') === 'on'
+        };
+
+        try {
+            showNotification('Creating bot...', 'info');
+
+            // Call API to create bot
+            const response = await fetch('/api/bots/workflow', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(botConfig)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to create bot');
+            }
+
+            const result = await response.json();
+
+            // Close modal
+            const modal = document.querySelector('.bot-config-modal');
+            if (modal) modal.remove();
+
+            showNotification(`✅ Bot created successfully: ${botConfig.name}`, 'success');
+
+            // Redirect to dashboard after a short delay
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
+
+        } catch (error) {
+            console.error('Error creating bot:', error);
+            showNotification(`❌ Failed to create bot: ${error.message}`, 'error');
+        }
+    }
+
     validate() {
         const errors = [];
 
@@ -1796,3 +2032,9 @@ class StrategyBuilder {
 
 // Global instance will be created when modal opens
 let strategyBuilder = null;
+
+// Global helper function to edit bot workflow
+window.editBotWorkflow = function(botId) {
+    // Navigate to strategy builder page with bot ID parameter
+    window.location.href = `/strategy-builder?bot_id=${botId}`;
+};
