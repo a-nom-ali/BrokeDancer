@@ -7,6 +7,7 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/static/css/bot-card.css">
+    <link rel="stylesheet" href="/static/css/bot-config-modal.css">
     <link rel="stylesheet" href="/static/css/profile-modal.css">
     <link rel="stylesheet" href="/static/css/live-data.css">
     <link rel="stylesheet" href="/static/css/strategy-builder.css">
@@ -987,8 +988,7 @@
         }
 
         function configBot(botId) {
-            showNotification('Bot configuration editor coming soon!', 'info');
-            // TODO: Implement bot config editor
+            botConfigModal.showEdit(botId);
         }
 
         // Load active profile name

@@ -180,9 +180,252 @@ class ProfileModal {
         }
     }
 
-    editProfile(profileId) {
-        showNotification('Profile editing UI coming soon!', 'info');
-        // TODO: Implement edit UI with credential management
+    async editProfile(profileId) {
+        try {
+            // Load profile details
+            const response = await fetch(`/api/profiles/${profileId}`);
+            const profile = await response.json();
+
+            this.showEditForm(profile);
+        } catch (error) {
+            console.error('Error loading profile:', error);
+            showNotification('❌ Failed to load profile details', 'error');
+        }
+    }
+
+    showEditForm(profile) {
+        this.modal.querySelector('.modal-body').innerHTML = `
+            <form id="editProfileForm" onsubmit="profileModal.updateProfile(event, '${profile.id}')">
+                <div class="form-group">
+                    <label>Profile Name</label>
+                    <input type="text" name="name" value="${profile.name}" required>
+                </div>
+
+                <div class="config-section">
+                    <h3>🔐 Credentials</h3>
+                    <p class="security-notice">
+                        <strong>Security Notice:</strong> Credentials are encrypted at rest.
+                        Leave fields blank to keep existing values.
+                    </p>
+
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <div class="credential-input-group">
+                            <input type="password" name="api_key" placeholder="Enter new API key or leave blank">
+                            <button type="button" class="btn-toggle-visibility" onclick="profileModal.togglePasswordVisibility(this)">
+                                👁️
+                            </button>
+                        </div>
+                        <small>Polymarket API key for trading</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>API Secret</label>
+                        <div class="credential-input-group">
+                            <input type="password" name="api_secret" placeholder="Enter new API secret or leave blank">
+                            <button type="button" class="btn-toggle-visibility" onclick="profileModal.togglePasswordVisibility(this)">
+                                👁️
+                            </button>
+                        </div>
+                        <small>Polymarket API secret for signing requests</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Wallet Private Key (Optional)</label>
+                        <div class="credential-input-group">
+                            <input type="password" name="private_key" placeholder="Enter wallet private key or leave blank">
+                            <button type="button" class="btn-toggle-visibility" onclick="profileModal.togglePasswordVisibility(this)">
+                                👁️
+                            </button>
+                        </div>
+                        <small>Only required for on-chain operations</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="enable_encryption" ${profile.encrypted ? 'checked' : ''}>
+                            Enable credential encryption (recommended)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>⚙️ Configuration</h3>
+
+                    <div class="form-group">
+                        <label>RPC URL</label>
+                        <input type="url" name="rpc_url" value="${profile.config?.rpc_url || ''}" placeholder="https://polygon-rpc.com">
+                        <small>Polygon RPC endpoint for blockchain operations</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Chain ID</label>
+                        <input type="number" name="chain_id" value="${profile.config?.chain_id || 137}" placeholder="137">
+                        <small>137 for Polygon Mainnet, 80001 for Mumbai Testnet</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Default Market</label>
+                        <input type="text" name="default_market" value="${profile.config?.default_market || ''}" placeholder="Market ID">
+                        <small>Default market for trading bots (optional)</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label>Max Gas Price (Gwei)</label>
+                            <input type="number" name="max_gas_price" value="${profile.config?.max_gas_price || ''}" placeholder="50" step="0.1">
+                        </div>
+                        <div class="form-col">
+                            <label>Gas Limit</label>
+                            <input type="number" name="gas_limit" value="${profile.config?.gas_limit || ''}" placeholder="200000">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="testnet_mode" ${profile.config?.testnet_mode ? 'checked' : ''}>
+                            Testnet Mode (use Mumbai testnet instead of mainnet)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="config-section config-section--collapsible collapsed">
+                    <h3 onclick="this.parentElement.classList.toggle('collapsed')">
+                        Advanced Settings
+                        <span class="collapse-icon">▼</span>
+                    </h3>
+                    <div class="config-section__content">
+                        <div class="form-group">
+                            <label>Request Timeout (seconds)</label>
+                            <input type="number" name="request_timeout" value="${profile.config?.request_timeout || 30}" placeholder="30">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Max Retries</label>
+                            <input type="number" name="max_retries" value="${profile.config?.max_retries || 3}" placeholder="3">
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="verbose_logging" ${profile.config?.verbose_logging ? 'checked' : ''}>
+                                Enable verbose logging
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Custom Headers (JSON)</label>
+                            <textarea name="custom_headers" rows="3" placeholder='{"X-Custom-Header": "value"}'>${profile.config?.custom_headers ? JSON.stringify(profile.config.custom_headers, null, 2) : ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn--secondary" onclick="profileModal.show()">Cancel</button>
+                    <button type="button" class="btn btn--danger" onclick="profileModal.testConnection('${profile.id}')">
+                        🔌 Test Connection
+                    </button>
+                    <button type="submit" class="btn btn--primary">Save Changes</button>
+                </div>
+            </form>
+        `;
+    }
+
+    async updateProfile(event, profileId) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+
+        // Build credentials object (only include if provided)
+        const credentials = {};
+        if (formData.get('api_key')) credentials.api_key = formData.get('api_key');
+        if (formData.get('api_secret')) credentials.api_secret = formData.get('api_secret');
+        if (formData.get('private_key')) credentials.private_key = formData.get('private_key');
+
+        // Build config object
+        const config = {
+            rpc_url: formData.get('rpc_url'),
+            chain_id: parseInt(formData.get('chain_id') || 137),
+            default_market: formData.get('default_market'),
+            testnet_mode: formData.get('testnet_mode') === 'on',
+            max_gas_price: formData.get('max_gas_price') ? parseFloat(formData.get('max_gas_price')) : null,
+            gas_limit: formData.get('gas_limit') ? parseInt(formData.get('gas_limit')) : null,
+            request_timeout: parseInt(formData.get('request_timeout') || 30),
+            max_retries: parseInt(formData.get('max_retries') || 3),
+            verbose_logging: formData.get('verbose_logging') === 'on'
+        };
+
+        // Parse custom headers if provided
+        const customHeaders = formData.get('custom_headers');
+        if (customHeaders && customHeaders.trim()) {
+            try {
+                config.custom_headers = JSON.parse(customHeaders);
+            } catch (error) {
+                showNotification('❌ Invalid JSON in custom headers', 'error');
+                return;
+            }
+        }
+
+        const updateData = {
+            name: formData.get('name'),
+            config: config,
+            enable_encryption: formData.get('enable_encryption') === 'on'
+        };
+
+        // Only include credentials if any were provided
+        if (Object.keys(credentials).length > 0) {
+            updateData.credentials = credentials;
+        }
+
+        try {
+            const response = await fetch(`/api/profiles/${profileId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                showNotification('✅ Profile updated successfully!', 'success');
+                this.show(); // Return to list
+            } else {
+                showNotification(`❌ ${result.error || 'Failed to update profile'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            showNotification('❌ Error updating profile', 'error');
+        }
+    }
+
+    async testConnection(profileId) {
+        showNotification('🔌 Testing connection...', 'info');
+
+        try {
+            const response = await fetch(`/api/profiles/${profileId}/test`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showNotification(`✅ Connection successful! ${result.message || ''}`, 'success');
+            } else {
+                showNotification(`❌ Connection failed: ${result.error || 'Unknown error'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error testing connection:', error);
+            showNotification('❌ Failed to test connection', 'error');
+        }
+    }
+
+    togglePasswordVisibility(button) {
+        const input = button.previousElementSibling;
+        if (input.type === 'password') {
+            input.type = 'text';
+            button.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            button.textContent = '👁️';
+        }
     }
 }
 
