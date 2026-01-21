@@ -790,6 +790,115 @@ class TradingBotWebServer:
                 logger.error(f"Error validating credentials: {e}")
                 return jsonify({"error": str(e)}), 500
 
+        # ====================================================================
+        # WORKFLOW EXECUTION API
+        # ====================================================================
+
+        @self.app.route('/api/workflow/execute', methods=['POST'])
+        def api_execute_workflow():
+            """
+            Execute a workflow graph.
+
+            Request body:
+                {
+                    "workflow": {
+                        "blocks": [...],
+                        "connections": [...]
+                    }
+                }
+
+            Returns:
+                {
+                    "status": "completed",
+                    "duration": 234,
+                    "results": [...],
+                    "errors": []
+                }
+            """
+            data = request.json or {}
+            workflow = data.get('workflow')
+
+            if not workflow:
+                return jsonify({"error": "workflow required"}), 400
+
+            if not workflow.get('blocks'):
+                return jsonify({"error": "workflow must have blocks"}), 400
+
+            try:
+                from ..workflow.executor import WorkflowExecutor
+
+                # Create executor
+                executor = WorkflowExecutor(workflow)
+
+                # Run workflow synchronously (async in a thread)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                try:
+                    # Initialize
+                    loop.run_until_complete(executor.initialize())
+
+                    # Execute
+                    result = loop.run_until_complete(executor.execute())
+
+                    return jsonify(result)
+
+                finally:
+                    loop.close()
+
+            except Exception as e:
+                logger.error(f"Error executing workflow: {e}", exc_info=True)
+                return jsonify({
+                    "status": "failed",
+                    "error": str(e),
+                    "duration": 0,
+                    "results": [],
+                    "errors": [{"error": str(e)}]
+                }), 500
+
+        @self.app.route('/api/credentials/profiles', methods=['GET'])
+        def api_get_credential_profiles():
+            """
+            Get credential profiles for a provider.
+
+            Query params:
+                provider: Provider name (polymarket, binance, kalshi)
+
+            Returns:
+                [{
+                    "id": "prod_1",
+                    "name": "Production",
+                    "provider": "polymarket",
+                    "created_at": "2026-01-20T10:00:00Z"
+                }]
+            """
+            provider = request.args.get('provider')
+
+            if not provider:
+                return jsonify({"error": "provider query parameter required"}), 400
+
+            try:
+                # Get all profiles
+                all_profiles = self.profile_manager.get_all_profiles()
+
+                # Filter by provider
+                provider_profiles = [
+                    {
+                        'id': profile_id,
+                        'name': profile.get('name', profile_id),
+                        'provider': profile.get('provider', provider),
+                        'created_at': profile.get('created_at', datetime.now().isoformat())
+                    }
+                    for profile_id, profile in all_profiles.items()
+                    if profile.get('provider') == provider
+                ]
+
+                return jsonify(provider_profiles)
+
+            except Exception as e:
+                logger.error(f"Error fetching credential profiles: {e}")
+                return jsonify({"error": str(e)}), 500
+
     def _setup_websocket_handlers(self):
         """Setup WebSocket event handlers."""
 
