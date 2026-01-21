@@ -546,3 +546,85 @@
 .code-preview-modal__body::-webkit-scrollbar-thumb:hover {
     background: #4e4e4e;
 }
+
+/* ============================================================================ */
+/* PROVIDER NODE STYLES */
+/* ============================================================================ */
+
+/* Checkbox group for provider endpoints */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary, #e2e8f0);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.checkbox-label:hover {
+    background: var(--bg-primary, #0f172a);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--info, #3b82f6);
+}
+
+/* Profile status indicator */
+.profile-status {
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    border: 2px solid;
+}
+
+.profile-status--active {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--success, #10b981);
+    color: var(--success, #10b981);
+}
+
+.profile-status--inactive {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: var(--warning, #f59e0b);
+    color: var(--warning, #f59e0b);
+}
+
+/* Provider block styling in sidebar */
+.block-library__item[data-category="providers"] {
+    border-left: 3px solid var(--info, #3b82f6);
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%);
+}
+
+.block-library__item[data-category="providers"]:hover {
+    border-left-color: var(--info, #60a5fa);
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, transparent 100%);
+}
+
+.block-library__item[data-category="providers"] .block__icon {
+    filter: brightness(1.2);
+}
+
+/* Provider category header */
+.block-category:has([data-category="providers"]) .block-category__header {
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+    border: 1px solid var(--info, #3b82f6);
+}
+
+.block-category:has([data-category="providers"]) .block-category__header:hover {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%);
+}

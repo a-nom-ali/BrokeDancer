@@ -40,6 +40,41 @@ class StrategyBuilder {
 
         // Block types library
         this.blockLibrary = {
+            providers: [
+                {
+                    id: 'polymarket',
+                    name: 'Polymarket',
+                    icon: '📊',
+                    inputs: [],
+                    outputs: ['price_feed', 'balance', 'positions', 'orderbook'],
+                    config: {
+                        profile_id: null,
+                        enabled_endpoints: ['price_feed', 'balance', 'positions', 'orderbook']
+                    }
+                },
+                {
+                    id: 'binance',
+                    name: 'Binance',
+                    icon: '🔗',
+                    inputs: [],
+                    outputs: ['price_feed', 'balance', 'positions', 'orderbook'],
+                    config: {
+                        profile_id: null,
+                        enabled_endpoints: ['price_feed', 'balance', 'positions', 'orderbook']
+                    }
+                },
+                {
+                    id: 'kalshi',
+                    name: 'Kalshi',
+                    icon: '🎲',
+                    inputs: [],
+                    outputs: ['price_feed', 'balance', 'positions', 'orderbook'],
+                    config: {
+                        profile_id: null,
+                        enabled_endpoints: ['price_feed', 'balance', 'positions', 'orderbook']
+                    }
+                }
+            ],
             triggers: [
                 { id: 'price_cross', name: 'Price Cross', icon: '📈', inputs: ['price', 'threshold'], outputs: ['signal'] },
                 { id: 'volume_spike', name: 'Volume Spike', icon: '📊', inputs: ['volume', 'multiplier'], outputs: ['signal'] },
@@ -129,6 +164,16 @@ class StrategyBuilder {
                     <!-- Block Library Sidebar -->
                     <div class="strategy-builder__sidebar">
                         <h3>Building Blocks</h3>
+
+                        <div class="block-category">
+                            <div class="block-category__header" onclick="this.parentElement.classList.toggle('collapsed')">
+                                <span>📊 Providers</span>
+                                <span class="block-category__toggle">▼</span>
+                            </div>
+                            <div class="block-category__content">
+                                ${this.renderBlockLibrary('providers')}
+                            </div>
+                        </div>
 
                         <div class="block-category">
                             <div class="block-category__header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -325,10 +370,10 @@ class StrategyBuilder {
             x: x,
             y: y,
             width: 150,
-            height: 80,
+            height: category === 'providers' ? 120 : 80,  // Taller for providers
             inputs: template.inputs.map(name => ({ name, connected: false })),
             outputs: template.outputs.map(name => ({ name, connected: false })),
-            properties: {}
+            properties: category === 'providers' ? { ...template.config } : {}  // Pre-populate provider config
         };
 
         this.blocks.push(block);
@@ -667,6 +712,11 @@ class StrategyBuilder {
     }
 
     renderBlockProperties(block) {
+        // Handle provider nodes specially
+        if (block.category === 'providers') {
+            return this.renderProviderProperties(block);
+        }
+
         // Generate property inputs based on block type
         const inputs = block.inputs.map((input, i) => `
             <div class="property-group">
@@ -681,11 +731,78 @@ class StrategyBuilder {
         return inputs || '<p class="properties__empty">No configurable properties</p>';
     }
 
+    renderProviderProperties(block) {
+        // Fetch available profiles (this would come from server)
+        // For now, mock data
+        const availableProfiles = [
+            { id: 'prod_1', name: 'Production', provider: block.type },
+            { id: 'test_1', name: 'Testing', provider: block.type },
+            { id: 'dev_1', name: 'Development', provider: block.type }
+        ];
+
+        const selectedProfile = block.properties.profile_id || '';
+        const enabledEndpoints = block.properties.enabled_endpoints || [];
+
+        return `
+            <div class="property-group">
+                <label>Credential Profile</label>
+                <select onchange="strategyBuilder.updateProperty('${block.id}', 'profile_id', this.value)">
+                    <option value="">Select profile...</option>
+                    ${availableProfiles.map(profile => `
+                        <option value="${profile.id}" ${profile.id === selectedProfile ? 'selected' : ''}>
+                            ${profile.name}
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            <div class="property-group">
+                <label>Enabled Outputs</label>
+                <div class="checkbox-group">
+                    ${block.outputs.map(output => `
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   value="${output.name}"
+                                   ${enabledEndpoints.includes(output.name) ? 'checked' : ''}
+                                   onchange="strategyBuilder.toggleProviderEndpoint('${block.id}', '${output.name}', this.checked)">
+                            ${output.name}
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="property-group">
+                <label>Profile Status</label>
+                <div class="profile-status ${selectedProfile ? 'profile-status--active' : 'profile-status--inactive'}">
+                    ${selectedProfile ? '✓ Profile linked' : '⚠ No profile selected'}
+                </div>
+            </div>
+        `;
+    }
+
     updateProperty(blockId, propertyName, value) {
         const block = this.blocks.find(b => b.id === blockId);
         if (block) {
             block.properties[propertyName] = value;
         }
+    }
+
+    toggleProviderEndpoint(blockId, endpoint, enabled) {
+        const block = this.blocks.find(b => b.id === blockId);
+        if (!block || block.category !== 'providers') return;
+
+        if (!block.properties.enabled_endpoints) {
+            block.properties.enabled_endpoints = [];
+        }
+
+        if (enabled) {
+            if (!block.properties.enabled_endpoints.includes(endpoint)) {
+                block.properties.enabled_endpoints.push(endpoint);
+            }
+        } else {
+            block.properties.enabled_endpoints = block.properties.enabled_endpoints.filter(e => e !== endpoint);
+        }
+
+        this.saveState();
+        showNotification(`${enabled ? 'Enabled' : 'Disabled'} ${endpoint}`, 'info');
     }
 
     hideProperties() {
@@ -824,6 +941,7 @@ class StrategyBuilder {
         const ctx = this.ctx;
         const isSelected = this.selectedBlock && this.selectedBlock.id === block.id;
         const isActive = this.activeNodes.has(block.id);
+        const isProvider = block.category === 'providers';
 
         // Block shadow
         if (isSelected) {
@@ -834,19 +952,21 @@ class StrategyBuilder {
             ctx.shadowBlur = 15;
         }
 
-        // Block background
-        ctx.fillStyle = isActive ? '#065f46' : (isSelected ? '#1e40af' : '#334155');
+        // Block background - different color for providers
+        ctx.fillStyle = isProvider ? '#1e3a8a' :  // Dark blue for providers
+                       (isActive ? '#065f46' : (isSelected ? '#1e40af' : '#334155'));
         ctx.fillRect(block.x, block.y, block.width, block.height);
 
-        // Block border
-        ctx.strokeStyle = isActive ? '#10b981' : (isSelected ? '#3b82f6' : '#475569');
-        ctx.lineWidth = isActive ? 3 : (isSelected ? 3 : 2);
+        // Block border - thicker for providers
+        ctx.strokeStyle = isProvider ? '#60a5fa' :  // Bright blue for providers
+                         (isActive ? '#10b981' : (isSelected ? '#3b82f6' : '#475569'));
+        ctx.lineWidth = isProvider ? 3 : (isActive ? 3 : (isSelected ? 3 : 2));
         ctx.strokeRect(block.x, block.y, block.width, block.height);
 
         ctx.shadowBlur = 0;
 
-        // Block header
-        ctx.fillStyle = '#1e293b';
+        // Block header - different color for providers
+        ctx.fillStyle = isProvider ? '#1e293b' : '#1e293b';
         ctx.fillRect(block.x, block.y, block.width, 30);
 
         // Block icon and name
@@ -854,8 +974,8 @@ class StrategyBuilder {
         ctx.font = '16px sans-serif';
         ctx.fillText(block.icon, block.x + 10, block.y + 20);
 
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#e2e8f0';
+        ctx.font = isProvider ? 'bold 12px sans-serif' : '12px sans-serif';  // Bold for providers
+        ctx.fillStyle = isProvider ? '#93c5fd' : '#e2e8f0';  // Lighter blue for provider text
         ctx.fillText(block.name, block.x + 35, block.y + 20);
 
         // Input/Output ports
@@ -1337,6 +1457,24 @@ class StrategyBuilder {
 
     clearCanvas() {
         this.newStrategy();
+    }
+
+    // ============================================================================
+    // PROVIDER CREDENTIAL MANAGEMENT
+    // ============================================================================
+
+    async loadCredentialProfiles(provider) {
+        try {
+            const response = await fetch(`/api/credentials/profiles?provider=${provider}`);
+            if (!response.ok) throw new Error('Failed to fetch profiles');
+
+            const profiles = await response.json();
+            return profiles;
+        } catch (error) {
+            console.error('Error loading profiles:', error);
+            showNotification('Failed to load credential profiles', 'error');
+            return [];
+        }
     }
 
     // ============================================================================
