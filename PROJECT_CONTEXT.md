@@ -343,18 +343,18 @@ Use gitmoji for all commits:
 **Priority**: Create wireframes and set up project
 
 **Tasks** (in order):
-1. [ ] Create `WIREFRAMES.md` with ASCII art diagrams
-2. [ ] Set up React + Vite project in `web/` directory
-3. [ ] Install dependencies (see tech stack)
-4. [ ] Create folder structure (components, pages, services)
-5. [ ] Document design tokens (colors, spacing)
-6. [ ] Create `COMPONENT_CATALOG.md` template
-7. [ ] Set up TailwindCSS config
-8. [ ] Install shadcn/ui components
+1. [x] Create `WIREFRAMES.md` with ASCII art diagrams
+2. [x] Set up React + Vite project in `web/` directory
+3. [x] Install dependencies (see tech stack)
+4. [x] Create folder structure (components, pages, services)
+5. [x] Document design tokens (colors, spacing) - in Tailwind config
+6. [x] Create `COMPONENT_CATALOG.md` template
+7. [x] Set up TailwindCSS config
+8. [ ] Install shadcn/ui components (optional - can add as needed)
 
-**Expected Duration**: 1 week
+**Status**: ✅ Week 1 Complete
 
-**Deliverable**: Wireframes + React project ready for Week 2
+**Deliverable**: ✅ Wireframes + React project ready for Week 2
 
 ---
 
