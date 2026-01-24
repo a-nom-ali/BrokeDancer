@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test Client</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #60a5fa;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 30px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .panel h2 {
+            color: #60a5fa;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-indicator.connected {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #60a5fa;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px 16px;
+            background: #3b82f6;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        button:disabled {
+            background: #334155;
+            cursor: not-allowed;
+        }
+
+        button.danger {
+            background: #ef4444;
+        }
+
+        button.danger:hover {
+            background: #dc2626;
+        }
+
+        button.success {
+            background: #10b981;
+        }
+
+        button.success:hover {
+            background: #059669;
+        }
+
+        .events-log {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+        }
+
+        .event {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #1e293b;
+            border-left: 3px solid #60a5fa;
+            border-radius: 4px;
+        }
+
+        .event.node-started {
+            border-left-color: #f59e0b;
+        }
+
+        .event.node-completed {
+            border-left-color: #10b981;
+        }
+
+        .event.node-failed {
+            border-left-color: #ef4444;
+        }
+
+        .event-type {
+            color: #60a5fa;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .event-data {
+            color: #94a3b8;
+        }
+
+        .event-time {
+            color: #64748b;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #60a5fa;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-group button {
+            flex: 1;
+        }
+
+        .clear-btn {
+            margin-top: 10px;
+            background: #64748b;
+        }
+
+        .clear-btn:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 WebSocket Test Client</h1>
+        <p class="subtitle">Test your workflow WebSocket server</p>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="events-received">0</div>
+                <div class="stat-label">Events Received</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="subscriptions-active">0</div>
+                <div class="stat-label">Active Subscriptions</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="uptime">0s</div>
+                <div class="stat-label">Uptime</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <h2>Connection</h2>
+
+                <div class="status">
+                    <div class="status-indicator" id="status-indicator"></div>
+                    <span id="status-text">Disconnected</span>
+                </div>
+
+                <div class="control-group">
+                    <label>Server URL</label>
+                    <input type="text" id="server-url" value="http://localhost:8001" placeholder="http://localhost:8001">
+                </div>
+
+                <div class="control-group">
+                    <label>Auth Token (if required)</label>
+                    <input type="text" id="auth-token" placeholder="your-auth-token">
+                </div>
+
+                <button id="connect-btn" onclick="connect()">Connect</button>
+                <button id="disconnect-btn" onclick="disconnect()" disabled style="margin-top: 10px;">Disconnect</button>
+            </div>
+
+            <div class="panel">
+                <h2>Subscriptions</h2>
+
+                <div class="control-group">
+                    <label>Workflow ID</label>
+                    <input type="text" id="workflow-id" placeholder="demo_workflow_001">
+                </div>
+                <button onclick="subscribeWorkflow()" disabled id="sub-workflow-btn" class="success">Subscribe to Workflow</button>
+
+                <div class="control-group" style="margin-top: 15px;">
+                    <label>Bot ID</label>
+                    <input type="text" id="bot-id" placeholder="bot_demo">
+                </div>
+                <button onclick="subscribeBot()" disabled id="sub-bot-btn" class="success">Subscribe to Bot</button>
+
+                <div class="control-group" style="margin-top: 15px;">
+                    <label>Strategy ID</label>
+                    <input type="text" id="strategy-id" placeholder="demo_strategy">
+                </div>
+                <button onclick="subscribeStrategy()" disabled id="sub-strategy-btn" class="success">Subscribe to Strategy</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Events Log</h2>
+            <div class="events-log" id="events-log">
+                <div style="color: #64748b; text-align: center; padding: 20px;">
+                    No events yet. Connect to the server and subscribe to events.
+                </div>
+            </div>
+            <button class="clear-btn" onclick="clearEvents()">Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let eventsReceived = 0;
+        let subscriptionsActive = 0;
+        let connectionTime = null;
+        let uptimeInterval = null;
+
+        function updateStats() {
+            document.getElementById('events-received').textContent = eventsReceived;
+            document.getElementById('subscriptions-active').textContent = subscriptionsActive;
+        }
+
+        function updateUptime() {
+            if (connectionTime) {
+                const seconds = Math.floor((Date.now() - connectionTime) / 1000);
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                document.getElementById('uptime').textContent = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            }
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('server-url').value;
+            const authToken = document.getElementById('auth-token').value;
+
+            addLog('system', 'Connecting to ' + serverUrl + '...');
+
+            socket = io(serverUrl);
+
+            socket.on('connect', () => {
+                addLog('system', 'Connected! Session ID: ' + socket.id);
+                document.getElementById('status-indicator').classList.add('connected');
+                document.getElementById('status-text').textContent = 'Connected';
+                document.getElementById('connect-btn').disabled = true;
+                document.getElementById('disconnect-btn').disabled = false;
+                document.getElementById('sub-workflow-btn').disabled = false;
+                document.getElementById('sub-bot-btn').disabled = false;
+                document.getElementById('sub-strategy-btn').disabled = false;
+
+                connectionTime = Date.now();
+                uptimeInterval = setInterval(updateUptime, 1000);
+
+                // Authenticate if token provided
+                if (authToken) {
+                    socket.emit('authenticate', { token: authToken });
+                }
+            });
+
+            socket.on('connected', (data) => {
+                addLog('system', 'Server confirmation: ' + data.message);
+                if (data.auth_required) {
+                    addLog('warning', 'Authentication required for this server');
+                }
+            });
+
+            socket.on('auth_response', (data) => {
+                if (data.success) {
+                    addLog('success', 'Authentication successful');
+                } else {
+                    addLog('error', 'Authentication failed: ' + data.message);
+                }
+            });
+
+            socket.on('disconnect', () => {
+                addLog('system', 'Disconnected from server');
+                document.getElementById('status-indicator').classList.remove('connected');
+                document.getElementById('status-text').textContent = 'Disconnected';
+                document.getElementById('connect-btn').disabled = false;
+                document.getElementById('disconnect-btn').disabled = true;
+                document.getElementById('sub-workflow-btn').disabled = true;
+                document.getElementById('sub-bot-btn').disabled = true;
+                document.getElementById('sub-strategy-btn').disabled = true;
+
+                clearInterval(uptimeInterval);
+                connectionTime = null;
+            });
+
+            socket.on('subscribed', (data) => {
+                subscriptionsActive++;
+                updateStats();
+                addLog('success', `Subscribed to ${data.type}: ${data[data.type + '_id']}`);
+            });
+
+            socket.on('workflow_event', (event) => {
+                eventsReceived++;
+                updateStats();
+                addLog('event', event);
+            });
+
+            socket.on('recent_events', (data) => {
+                addLog('system', `Received ${data.count} recent events`);
+                data.events.forEach(event => {
+                    addLog('event', event);
+                });
+            });
+
+            socket.on('error', (data) => {
+                addLog('error', data.message);
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                subscriptionsActive = 0;
+                updateStats();
+            }
+        }
+
+        function subscribeWorkflow() {
+            const workflowId = document.getElementById('workflow-id').value;
+            if (workflowId && socket) {
+                socket.emit('subscribe_workflow', { workflow_id: workflowId });
+                addLog('system', 'Subscribing to workflow: ' + workflowId);
+            }
+        }
+
+        function subscribeBot() {
+            const botId = document.getElementById('bot-id').value;
+            if (botId && socket) {
+                socket.emit('subscribe_bot', { bot_id: botId });
+                addLog('system', 'Subscribing to bot: ' + botId);
+            }
+        }
+
+        function subscribeStrategy() {
+            const strategyId = document.getElementById('strategy-id').value;
+            if (strategyId && socket) {
+                socket.emit('subscribe_strategy', { strategy_id: strategyId });
+                addLog('system', 'Subscribing to strategy: ' + strategyId);
+            }
+        }
+
+        function addLog(type, data) {
+            const log = document.getElementById('events-log');
+            const event = document.createElement('div');
+
+            const now = new Date().toLocaleTimeString();
+
+            if (type === 'event') {
+                const eventType = data.type || 'unknown';
+                event.className = 'event ' + eventType.replace('_', '-');
+                event.innerHTML = `
+                    <div class="event-type">${eventType}</div>
+                    <div class="event-data">${JSON.stringify(data, null, 2)}</div>
+                    <div class="event-time">${now}</div>
+                `;
+            } else if (type === 'system') {
+                event.className = 'event';
+                event.innerHTML = `
+                    <div class="event-type">SYSTEM</div>
+                    <div class="event-data">${data}</div>
+                    <div class="event-time">${now}</div>
+                `;
+            } else if (type === 'success') {
+                event.className = 'event';
+                event.style.borderLeftColor = '#10b981';
+                event.innerHTML = `
+                    <div class="event-type">SUCCESS</div>
+                    <div class="event-data">${data}</div>
+                    <div class="event-time">${now}</div>
+                `;
+            } else if (type === 'error') {
+                event.className = 'event';
+                event.style.borderLeftColor = '#ef4444';
+                event.innerHTML = `
+                    <div class="event-type">ERROR</div>
+                    <div class="event-data">${data}</div>
+                    <div class="event-time">${now}</div>
+                `;
+            } else if (type === 'warning') {
+                event.className = 'event';
+                event.style.borderLeftColor = '#f59e0b';
+                event.innerHTML = `
+                    <div class="event-type">WARNING</div>
+                    <div class="event-data">${data}</div>
+                    <div class="event-time">${now}</div>
+                `;
+            }
+
+            // Clear placeholder if exists
+            if (log.children.length === 1 && log.children[0].textContent.includes('No events yet')) {
+                log.innerHTML = '';
+            }
+
+            log.appendChild(event);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearEvents() {
+            const log = document.getElementById('events-log');
+            log.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px;">Log cleared.</div>';
+            eventsReceived = 0;
+            updateStats();
+        }
+    </script>
+</body>
+</html>

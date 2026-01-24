@@ -7,6 +7,8 @@ Broadcasts workflow execution events to connected UI clients using Socket.IO.
 import socketio
 from aiohttp import web
 from typing import Optional, Dict, Set
+import time
+from datetime import datetime
 from src.infrastructure.factory import Infrastructure
 from src.infrastructure.logging import get_logger
 
@@ -36,14 +38,23 @@ class WorkflowWebSocketServer:
         # socket.on('workflow_event', (event) => { ... })
     """
 
-    def __init__(self, infra: Infrastructure):
+    def __init__(
+        self,
+        infra: Infrastructure,
+        auth_token: Optional[str] = None,
+        require_auth: bool = False
+    ):
         """
         Initialize WebSocket server.
 
         Args:
             infra: Infrastructure instance
+            auth_token: Optional authentication token for client connections
+            require_auth: Whether to require authentication
         """
         self.infra = infra
+        self.auth_token = auth_token
+        self.require_auth = require_auth
 
         # Create Socket.IO server
         self.sio = socketio.AsyncServer(
@@ -58,17 +69,28 @@ class WorkflowWebSocketServer:
         self.sio.attach(self.app)
 
         # Track client subscriptions
-        # sid -> {'workflow_ids': set(), 'bot_ids': set(), 'strategy_ids': set()}
-        self.client_subscriptions: Dict[str, Dict[str, Set[str]]] = {}
+        # sid -> {'workflow_ids': set(), 'bot_ids': set(), 'strategy_ids': set(), 'authenticated': bool}
+        self.client_subscriptions: Dict[str, Dict[str, any]] = {}
 
         # Recent events buffer (for replay to new clients)
         self.recent_events: list = []
         self.max_recent_events = 100
 
+        # Server metrics
+        self.start_time = time.time()
+        self.total_events_received = 0
+        self.total_events_sent = 0
+        self.total_connections = 0
+
         # Register event handlers
         self._register_handlers()
+        self._register_http_routes()
 
-        logger.info("websocket_server_initialized", cors_allowed=True)
+        logger.info(
+            "websocket_server_initialized",
+            cors_allowed=True,
+            auth_required=require_auth
+        )
 
     def _register_handlers(self):
         """Register Socket.IO event handlers."""
@@ -76,20 +98,57 @@ class WorkflowWebSocketServer:
         @self.sio.event
         async def connect(sid, environ):
             """Handle client connection."""
-            logger.info("client_connected", sid=sid)
+            self.total_connections += 1
+            logger.info("client_connected", sid=sid, total_connections=self.total_connections)
 
             # Initialize subscription tracking
             self.client_subscriptions[sid] = {
                 'workflow_ids': set(),
                 'bot_ids': set(),
-                'strategy_ids': set()
+                'strategy_ids': set(),
+                'authenticated': not self.require_auth,  # Auto-auth if not required
+                'connected_at': time.time()
             }
 
             # Send connection confirmation
             await self.sio.emit('connected', {
                 'sid': sid,
-                'message': 'Connected to workflow events'
+                'message': 'Connected to workflow events',
+                'auth_required': self.require_auth,
+                'server_time': datetime.utcnow().isoformat()
             }, to=sid)
+
+        @self.sio.event
+        async def authenticate(sid, data):
+            """
+            Authenticate client connection.
+
+            Client sends: { token: 'auth_token' }
+            """
+            if not self.require_auth:
+                await self.sio.emit('auth_response', {
+                    'success': True,
+                    'message': 'Authentication not required'
+                }, to=sid)
+                return
+
+            token = data.get('token')
+
+            if token == self.auth_token:
+                self.client_subscriptions[sid]['authenticated'] = True
+                logger.info("client_authenticated", sid=sid)
+
+                await self.sio.emit('auth_response', {
+                    'success': True,
+                    'message': 'Authentication successful'
+                }, to=sid)
+            else:
+                logger.warning("client_auth_failed", sid=sid)
+
+                await self.sio.emit('auth_response', {
+                    'success': False,
+                    'message': 'Invalid authentication token'
+                }, to=sid)
 
         @self.sio.event
         async def disconnect(sid):
@@ -107,6 +166,13 @@ class WorkflowWebSocketServer:
 
             Client sends: { workflow_id: 'arb_btc_001' }
             """
+            # Check authentication
+            if self.require_auth and not self.client_subscriptions[sid]['authenticated']:
+                await self.sio.emit('error', {
+                    'message': 'Authentication required'
+                }, to=sid)
+                return
+
             workflow_id = data.get('workflow_id')
 
             if not workflow_id:
@@ -140,6 +206,13 @@ class WorkflowWebSocketServer:
 
             Client sends: { bot_id: 'bot_001' }
             """
+            # Check authentication
+            if self.require_auth and not self.client_subscriptions[sid]['authenticated']:
+                await self.sio.emit('error', {
+                    'message': 'Authentication required'
+                }, to=sid)
+                return
+
             bot_id = data.get('bot_id')
 
             if not bot_id:
@@ -169,6 +242,13 @@ class WorkflowWebSocketServer:
 
             Client sends: { strategy_id: 'arb_btc' }
             """
+            # Check authentication
+            if self.require_auth and not self.client_subscriptions[sid]['authenticated']:
+                await self.sio.emit('error', {
+                    'message': 'Authentication required'
+                }, to=sid)
+                return
+
             strategy_id = data.get('strategy_id')
 
             if not strategy_id:
@@ -226,6 +306,81 @@ class WorkflowWebSocketServer:
                 f'{sub_type}_id': sub_id
             }, to=sid)
 
+    def _register_http_routes(self):
+        """Register HTTP routes for health checks and metrics."""
+
+        async def health_check(request):
+            """
+            Health check endpoint.
+
+            GET /health
+            """
+            # Check infrastructure health
+            infra_health = await self.infra.health_check()
+
+            # Build response
+            health_status = {
+                'status': 'healthy' if infra_health['status'] == 'healthy' else 'unhealthy',
+                'timestamp': datetime.utcnow().isoformat(),
+                'uptime_seconds': time.time() - self.start_time,
+                'websocket': {
+                    'connected_clients': len(self.client_subscriptions),
+                    'total_connections': self.total_connections
+                },
+                'infrastructure': infra_health
+            }
+
+            status_code = 200 if health_status['status'] == 'healthy' else 503
+
+            return web.json_response(health_status, status=status_code)
+
+        async def metrics(request):
+            """
+            Metrics endpoint.
+
+            GET /metrics
+            """
+            stats = self.get_stats()
+
+            metrics_data = {
+                'timestamp': datetime.utcnow().isoformat(),
+                'uptime_seconds': time.time() - self.start_time,
+                'connections': {
+                    'current': stats['connected_clients'],
+                    'total': self.total_connections
+                },
+                'subscriptions': {
+                    'total': stats['total_subscriptions'],
+                    'by_client': stats['clients']
+                },
+                'events': {
+                    'received': self.total_events_received,
+                    'sent': self.total_events_sent,
+                    'recent_buffer': stats['recent_events_count']
+                }
+            }
+
+            return web.json_response(metrics_data)
+
+        async def status(request):
+            """
+            Simple status endpoint.
+
+            GET /status
+            """
+            return web.json_response({
+                'status': 'ok',
+                'server': 'workflow-websocket-server',
+                'timestamp': datetime.utcnow().isoformat()
+            })
+
+        # Register routes
+        self.app.router.add_get('/health', health_check)
+        self.app.router.add_get('/metrics', metrics)
+        self.app.router.add_get('/status', status)
+
+        logger.info("http_routes_registered", routes=['/health', '/metrics', '/status'])
+
     async def setup(self):
         """Set up event bus subscription."""
         # Subscribe to workflow events from infrastructure
@@ -245,6 +400,8 @@ class WorkflowWebSocketServer:
         Args:
             event: Workflow event
         """
+        self.total_events_received += 1
+
         # Store in recent events buffer
         self.recent_events.append(event)
         if len(self.recent_events) > self.max_recent_events:
@@ -291,6 +448,7 @@ class WorkflowWebSocketServer:
             # Send event to client
             if should_send:
                 await self.sio.emit('workflow_event', event, to=sid)
+                self.total_events_sent += 1
 
     async def _send_recent_events(
         self,
