@@ -25,3 +25,11 @@ eth-keys==0.4.0
 pytest==7.4.3
 pytest-cov==4.1.0
 pytest-mock==3.12.0
+pytest-asyncio==0.21.1
+
+# Infrastructure dependencies (Week 2)
+redis==5.0.1                    # Redis client for state/events
+structlog==24.1.0               # Structured logging
+tenacity==8.2.3                 # Retry logic with exponential backoff
+pydantic==2.5.3                 # Configuration management
+pydantic-settings==2.1.0        # Environment variable loading
