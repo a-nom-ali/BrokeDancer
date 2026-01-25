@@ -2,36 +2,40 @@
  * Core type definitions for the Multi-Domain Automation Platform Dashboard
  */
 
-// ==================== Enums ====================
+// ==================== Enums (as const for erasableSyntaxOnly) ====================
 
-export enum BotStatus {
-  RUNNING = 'running',
-  PAUSED = 'paused',
-  ERROR = 'error',
-  STOPPED = 'stopped',
-}
+export const BotStatus = {
+  RUNNING: 'running',
+  PAUSED: 'paused',
+  ERROR: 'error',
+  STOPPED: 'stopped',
+} as const;
+export type BotStatus = typeof BotStatus[keyof typeof BotStatus];
 
-export enum StrategyStatus {
-  RUNNING = 'running',
-  PAUSED = 'paused',
-  ERROR = 'error',
-}
+export const StrategyStatus = {
+  RUNNING: 'running',
+  PAUSED: 'paused',
+  ERROR: 'error',
+} as const;
+export type StrategyStatus = typeof StrategyStatus[keyof typeof StrategyStatus];
 
-export enum NodeStatus {
-  IDLE = 'idle',
-  ACTIVE = 'active',
-  EXECUTING = 'executing',
-  SUCCESS = 'success',
-  FAILED = 'failed',
-}
+export const NodeStatus = {
+  IDLE: 'idle',
+  ACTIVE: 'active',
+  EXECUTING: 'executing',
+  SUCCESS: 'success',
+  FAILED: 'failed',
+} as const;
+export type NodeStatus = typeof NodeStatus[keyof typeof NodeStatus];
 
-export enum Domain {
-  TRADING = 'trading',
-  GPU = 'gpu',
-  ADVERTISING = 'advertising',
-  ECOMMERCE = 'ecommerce',
-  CREDIT_YIELD = 'credit_yield',
-}
+export const Domain = {
+  TRADING: 'trading',
+  GPU: 'gpu',
+  ADVERTISING: 'advertising',
+  ECOMMERCE: 'ecommerce',
+  CREDIT_YIELD: 'credit_yield',
+} as const;
+export type Domain = typeof Domain[keyof typeof Domain];
 
 // ==================== Bot Types ====================
 
@@ -133,14 +137,15 @@ export interface WorkflowConfig {
   riskLimits: Record<string, any>;
 }
 
-export enum NodeCategory {
-  SOURCE = 'source',
-  TRANSFORM = 'transform',
-  SCORER = 'scorer',
-  CONDITION = 'condition',
-  EXECUTOR = 'executor',
-  MONITOR = 'monitor',
-}
+export const NodeCategory = {
+  SOURCE: 'source',
+  TRANSFORM: 'transform',
+  SCORER: 'scorer',
+  CONDITION: 'condition',
+  EXECUTOR: 'executor',
+  MONITOR: 'monitor',
+} as const;
+export type NodeCategory = typeof NodeCategory[keyof typeof NodeCategory];
 
 // ==================== WebSocket Event Types ====================
 

@@ -15,7 +15,6 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useWorkflowEvents } from '../../hooks/useWorkflowEvents';
@@ -33,8 +32,10 @@ interface WorkflowNodeData extends Record<string, unknown> {
   duration_ms?: number;
 }
 
+type WorkflowNodeType = Node<WorkflowNodeData, 'workflowNode'>;
+
 // Custom node component with status indicator
-const WorkflowNode: React.FC<NodeProps<WorkflowNodeData>> = ({ data }) => {
+const WorkflowNode: React.FC<{ data: WorkflowNodeData }> = ({ data }) => {
   const getStatusColor = () => {
     switch (data.status) {
       case 'running':
@@ -84,7 +85,7 @@ const WorkflowNode: React.FC<NodeProps<WorkflowNodeData>> = ({ data }) => {
 
 const nodeTypes = {
   workflowNode: WorkflowNode,
-};
+} as const;
 
 const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
   workflowId,
@@ -99,7 +100,7 @@ const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
   });
 
   // Initialize with empty nodes/edges
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<WorkflowNodeData>>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeType>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   // Build workflow graph from events
@@ -141,7 +142,7 @@ const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
     });
 
     // Create nodes from statuses
-    const newNodes: Node<WorkflowNodeData>[] = [];
+    const newNodes: WorkflowNodeType[] = [];
     let yOffset = 0;
 
     nodeStatuses.forEach((data, nodeId) => {

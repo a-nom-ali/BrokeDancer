@@ -6,6 +6,7 @@
 
 import React from 'react';
 import WorkflowVisualizer from '../components/Workflow/WorkflowVisualizer';
+import ErrorBoundary from '../components/Shared/ErrorBoundary';
 
 const Workflows: React.FC = () => {
   return (
@@ -18,7 +19,9 @@ const Workflows: React.FC = () => {
       </div>
 
       <div className="flex-1 bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-        <WorkflowVisualizer />
+        <ErrorBoundary section="Workflow Visualizer">
+          <WorkflowVisualizer />
+        </ErrorBoundary>
       </div>
     </div>
   );

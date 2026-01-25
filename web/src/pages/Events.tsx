@@ -6,6 +6,7 @@
 
 import React from 'react';
 import EventStreamMonitor from '../components/Events/EventStreamMonitor';
+import ErrorBoundary from '../components/Shared/ErrorBoundary';
 
 const Events: React.FC = () => {
   return (
@@ -18,7 +19,9 @@ const Events: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <EventStreamMonitor />
+        <ErrorBoundary section="Event Stream">
+          <EventStreamMonitor />
+        </ErrorBoundary>
       </div>
     </div>
   );

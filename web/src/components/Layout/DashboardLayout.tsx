@@ -8,40 +8,15 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navigation from './Navigation';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import ErrorBoundary from '../Shared/ErrorBoundary';
+import ConnectionStatus from '../Shared/ConnectionStatus';
 
 export interface DashboardLayoutProps {
   children?: React.ReactNode;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { connectionStatus } = useWebSocket(true);
-
-  // Connection status colors
-  const getConnectionColor = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return 'bg-green-500';
-      case 'connecting':
-        return 'bg-yellow-500 animate-pulse';
-      case 'error':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
-  const getConnectionText = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return 'Connected';
-      case 'connecting':
-        return 'Connecting...';
-      case 'error':
-        return 'Connection Error';
-      default:
-        return 'Disconnected';
-    }
-  };
+  const { connectionStatus, connect } = useWebSocket(true);
 
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100">
@@ -61,12 +36,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
           {/* Connection Status */}
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${getConnectionColor()}`} />
-              <span className="text-sm text-gray-300">
-                {getConnectionText()}
-              </span>
-            </div>
+            <ConnectionStatus
+              status={connectionStatus}
+              onReconnect={connect}
+            />
 
             {/* Emergency Status - Will be populated later */}
             <div className="flex items-center space-x-2 px-3 py-1 bg-gray-700 rounded-md">
@@ -77,7 +50,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-gray-900 p-6">
-          {children || <Outlet />}
+          <ErrorBoundary section="Dashboard">
+            {children || <Outlet />}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

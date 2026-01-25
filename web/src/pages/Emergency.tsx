@@ -6,6 +6,7 @@
 
 import React from 'react';
 import EmergencyControlPanel from '../components/Emergency/EmergencyControlPanel';
+import ErrorBoundary from '../components/Shared/ErrorBoundary';
 
 const Emergency: React.FC = () => {
   return (
@@ -17,7 +18,9 @@ const Emergency: React.FC = () => {
         </p>
       </div>
 
-      <EmergencyControlPanel />
+      <ErrorBoundary section="Emergency Controls">
+        <EmergencyControlPanel />
+      </ErrorBoundary>
     </div>
   );
 };

@@ -8,9 +8,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { websocketService } from '../services/websocket';
 
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+
 export interface UseWebSocketReturn {
   isConnected: boolean;
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+  connectionStatus: ConnectionStatus;
   error: Error | null;
   connect: () => void;
   disconnect: () => void;
@@ -30,7 +32,7 @@ export interface UseWebSocketReturn {
  */
 export function useWebSocket(autoConnect = true): UseWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [error, setError] = useState<Error | null>(null);
 
   // Handle connection

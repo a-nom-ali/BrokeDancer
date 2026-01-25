@@ -6,6 +6,7 @@
 
 import React from 'react';
 import ExecutionHistoryViewer from '../components/History/ExecutionHistoryViewer';
+import ErrorBoundary from '../components/Shared/ErrorBoundary';
 
 const History: React.FC = () => {
   return (
@@ -17,7 +18,9 @@ const History: React.FC = () => {
         </p>
       </div>
 
-      <ExecutionHistoryViewer />
+      <ErrorBoundary section="Execution History">
+        <ExecutionHistoryViewer />
+      </ErrorBoundary>
     </div>
   );
 };
