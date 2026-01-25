@@ -41,8 +41,8 @@ async def main():
     parser.add_argument(
         "--port",
         type=int,
-        default=8001,
-        help="Port to bind to (default: 8001)"
+        default=8000,
+        help="Port to bind to (default: 8000)"
     )
     parser.add_argument(
         "--auth-token",
