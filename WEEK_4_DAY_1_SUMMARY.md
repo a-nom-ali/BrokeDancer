@@ -43,8 +43,9 @@ Built a full-featured, production-ready dashboard with real-time WebSocket integ
 - `/history` - Searchable execution history
 - `/events` - Live event stream with JSON export
 
-### ✅ Bug Fix: WebSocket Server
+### ✅ Bug Fixes
 
+#### 1. WebSocket Server Event Loop Conflict
 Fixed `RuntimeError: Cannot run the event loop while another loop is running`
 
 **Problem:** `web.run_app()` tried to create its own event loop while already inside `asyncio.run()` context
@@ -59,6 +60,34 @@ runner = web.AppRunner(self.app)
 await runner.setup()
 site = web.TCPSite(runner, host, port)
 await site.start()
+```
+
+#### 2. TailwindCSS v4 Migration
+Fixed multiple TailwindCSS configuration issues for v4 compatibility
+
+**Problems:**
+- PostCSS plugin moved to separate package
+- CSS syntax changed from `@tailwind` to `@import`
+- `@layer` and `@apply` directives removed in v4
+
+**Solutions:**
+- Installed `@tailwindcss/postcss` package
+- Updated `postcss.config.js` to use `'@tailwindcss/postcss'`
+- Rewrote `index.css` with `@import "tailwindcss"` and plain CSS
+- Removed `@layer` blocks and `@apply` utilities
+
+#### 3. WebSocket Port Mismatch
+Fixed dashboard connecting to wrong WebSocket port
+
+**Problem:** Dashboard tried to connect to port 8000, but server runs on port 8001 by default
+
+**Solution:** Updated `web/src/services/websocket.ts` line 18:
+```typescript
+// Before
+const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8000';
+
+// After
+const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8001';
 ```
 
 ---
@@ -154,9 +183,12 @@ await site.start()
 ### Modified Files
 - `web/src/App.tsx` - Added routing and layout
 - `src/web/websocket_server.py` - Fixed event loop issue
-- `web/package.json` - Added @heroicons/react dependency
+- `web/package.json` - Added @heroicons/react and @tailwindcss/postcss dependencies
+- `web/postcss.config.js` - Updated for TailwindCSS v4
+- `web/src/index.css` - Migrated to TailwindCSS v4 syntax
+- `web/src/services/websocket.ts` - Fixed port to 8001
 
-**Total: 22 files changed, 2,037 lines added**
+**Total: 25 files changed, 2,037+ lines added**
 
 ---
 
@@ -203,6 +235,8 @@ python examples/workflow/realtime_trading_workflow.py
 ## Commits
 
 ```
+b25e9bf 🔧 Fix WebSocket URL to use correct port 8001
+ae77286 🎨 Migrate to TailwindCSS v4 syntax
 41a2996 🎨 Build comprehensive React dashboard for workflow monitoring
 136ffe5 🐛 Fix WebSocket server event loop conflict
 ```
@@ -345,9 +379,11 @@ npm run preview
 
 ### Challenges Overcome
 1. **Event Loop Conflict** - Fixed with web.AppRunner instead of web.run_app
-2. **TypeScript Strictness** - Some ReactFlow type issues (minor, not blocking)
-3. **Real-Time State Management** - Solved with custom hooks and React state
-4. **Event Filtering** - Implemented efficient client-side filtering
+2. **TailwindCSS v4 Migration** - Complete rewrite of PostCSS config and CSS syntax
+3. **WebSocket Port Mismatch** - Updated default port from 8000 to 8001
+4. **TypeScript Strictness** - Some ReactFlow type issues (minor, not blocking)
+5. **Real-Time State Management** - Solved with custom hooks and React state
+6. **Event Filtering** - Implemented efficient client-side filtering
 
 ### Best Practices Established
 1. Always use type-safe imports (`type` keyword)
