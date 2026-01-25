@@ -15,7 +15,7 @@ import type {
 } from '../types';
 
 // WebSocket configuration
-const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8000';
+const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8001';
 const RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
