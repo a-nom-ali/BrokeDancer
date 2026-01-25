@@ -1,92 +1,72 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    /* Typography */
-    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+:root {
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Node animations */
+.node-executing {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border-width: 2px;
+  border-color: #10b981;
+}
+
+.node-error {
+  animation: shake 0.5s ease-in-out;
+  border-width: 2px;
+  border-color: #ef4444;
+}
+
+/* Value update highlight */
+.value-updated {
+  animation: highlight 500ms ease-out;
+}
+
+@keyframes highlight {
+  0% {
+    background-color: #FEF3C7;
   }
-
-  body {
-    @apply bg-white text-gray-900 antialiased;
-    font-family: var(--font-sans);
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
+  100% {
+    background-color: transparent;
   }
 }
 
-@layer components {
-  /* Node animations */
-  .node-executing {
-    @apply animate-pulse-green;
-    border-width: 2px;
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
   }
-
-  .node-error {
-    @apply animate-shake border-2 border-status-error;
+  25% {
+    transform: translateX(-4px);
   }
-
-  /* Value update highlight */
-  .value-updated {
-    animation: highlight 500ms ease-out;
-  }
-
-  @keyframes highlight {
-    0% {
-      background-color: #FEF3C7;
-    }
-    100% {
-      background-color: transparent;
-    }
-  }
-
-  /* Card styles */
-  .dashboard-card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-4;
-  }
-
-  /* Metric card */
-  .metric-card {
-    @apply dashboard-card flex flex-col;
-  }
-
-  /* Status indicators */
-  .status-dot {
-    @apply inline-block w-2 h-2 rounded-full;
-  }
-
-  .status-running {
-    @apply bg-status-running;
-  }
-
-  .status-paused {
-    @apply bg-status-paused;
-  }
-
-  .status-error {
-    @apply bg-status-error;
+  75% {
+    transform: translateX(4px);
   }
 }
 
-@layer utilities {
-  /* Custom scrollbar */
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
+/* Custom scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
 
-  .scrollbar-thin::-webkit-scrollbar-track {
-    @apply bg-gray-100;
-  }
+.scrollbar-thin::-webkit-scrollbar-track {
+  background-color: #f3f4f6;
+}
 
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 rounded-full;
-  }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 9999px;
+}
 
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400;
-  }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
 }
