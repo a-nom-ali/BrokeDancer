@@ -3,6 +3,7 @@ WebSocket Server for Real-Time Workflow Events
 
 Broadcasts workflow execution events to connected UI clients using Socket.IO.
 """
+import asyncio
 
 import socketio
 from aiohttp import web
