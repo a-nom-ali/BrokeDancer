@@ -307,6 +307,103 @@ class WorkflowWebSocketServer:
                 f'{sub_type}_id': sub_id
             }, to=sid)
 
+        @self.sio.event
+        async def unsubscribe_strategy(sid, data):
+            """
+            Unsubscribe from strategy events.
+
+            Client sends: { botId: 'bot_001', strategyId: 'strat_001' }
+            """
+            strategy_id = data.get('strategyId') or data.get('strategy_id')
+
+            if strategy_id and sid in self.client_subscriptions:
+                self.client_subscriptions[sid]['strategy_ids'].discard(strategy_id)
+                logger.info("client_unsubscribed_strategy", sid=sid, strategy_id=strategy_id)
+
+            await self.sio.emit('unsubscribed', {
+                'type': 'strategy',
+                'strategy_id': strategy_id
+            }, to=sid)
+
+        @self.sio.event
+        async def unsubscribe_bot(sid, data):
+            """
+            Unsubscribe from bot events.
+
+            Client sends: { botId: 'bot_001' }
+            """
+            bot_id = data.get('botId') or data.get('bot_id')
+
+            if bot_id and sid in self.client_subscriptions:
+                self.client_subscriptions[sid]['bot_ids'].discard(bot_id)
+                logger.info("client_unsubscribed_bot", sid=sid, bot_id=bot_id)
+
+            await self.sio.emit('unsubscribed', {
+                'type': 'bot',
+                'bot_id': bot_id
+            }, to=sid)
+
+        @self.sio.event
+        async def subscribe_all_bots(sid, data):
+            """
+            Subscribe to all bot events (for main dashboard).
+
+            Client sends: {}
+            """
+            # Check authentication
+            if self.require_auth and not self.client_subscriptions[sid]['authenticated']:
+                await self.sio.emit('error', {
+                    'message': 'Authentication required'
+                }, to=sid)
+                return
+
+            # Mark client as subscribed to all bots
+            self.client_subscriptions[sid]['all_bots'] = True
+
+            logger.info("client_subscribed_all_bots", sid=sid)
+
+            # Send all recent events
+            await self._send_recent_events(sid)
+
+            await self.sio.emit('subscribed', {
+                'type': 'all_bots'
+            }, to=sid)
+
+        @self.sio.event
+        async def request_state(sid, data):
+            """
+            Request current state for a bot or strategy.
+
+            Client sends: { type: 'bot', id: 'bot_001' }
+            """
+            state_type = data.get('type')
+            entity_id = data.get('id')
+
+            if not state_type or not entity_id:
+                await self.sio.emit('error', {
+                    'message': 'type and id required'
+                }, to=sid)
+                return
+
+            # Get state from infrastructure
+            state_key = f"{state_type}:{entity_id}"
+            state = await self.infra.state.get(state_key)
+
+            await self.sio.emit('state_response', {
+                'type': state_type,
+                'id': entity_id,
+                'state': state or {}
+            }, to=sid)
+
+            logger.info("state_requested", sid=sid, type=state_type, id=entity_id)
+
+        @self.sio.event
+        async def request_stats(sid, data=None):
+            """Request current stats."""
+            # Return server metrics
+            stats = self.get_stats()
+            await self.sio.emit('stats_update', stats, to=sid)
+
     def _register_http_routes(self):
         """Register HTTP routes for health checks and metrics."""
 
@@ -429,10 +526,15 @@ class WorkflowWebSocketServer:
         workflow_id = event.get('workflow_id')
         bot_id = event.get('bot_id')
         strategy_id = event.get('strategy_id')
+        event_type = event.get('type', 'workflow_event')
 
         # Find matching clients
         for sid, subs in self.client_subscriptions.items():
             should_send = False
+
+            # Check if client is subscribed to all bots
+            if subs.get('all_bots'):
+                should_send = True
 
             # Check if client is subscribed to this workflow
             if workflow_id and workflow_id in subs['workflow_ids']:
@@ -450,6 +552,10 @@ class WorkflowWebSocketServer:
             if should_send:
                 await self.sio.emit('workflow_event', event, to=sid)
                 self.total_events_sent += 1
+
+                # Also emit specific event types for frontend compatibility
+                if event_type in ['node_execution', 'bot_metrics', 'strategy_metrics', 'risk_limit_update']:
+                    await self.sio.emit(event_type, event, to=sid)
 
     async def _send_recent_events(
         self,

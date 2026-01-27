@@ -13,17 +13,74 @@ import type {
   WorkflowDefinition,
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 /**
- * Generic fetch wrapper with error handling
+ * Convert snake_case keys to camelCase
+ */
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
+ * Convert camelCase keys to snake_case
+ */
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+/**
+ * Recursively transform object keys from snake_case to camelCase
+ */
+function transformKeys<T>(obj: unknown, transformer: (key: string) => string): T {
+  if (Array.isArray(obj)) {
+    return obj.map((item) => transformKeys(item, transformer)) as T;
+  }
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+    return Object.keys(obj).reduce((acc, key) => {
+      const newKey = transformer(key);
+      acc[newKey] = transformKeys((obj as Record<string, unknown>)[key], transformer);
+      return acc;
+    }, {} as Record<string, unknown>) as T;
+  }
+  return obj as T;
+}
+
+/**
+ * Transform response from snake_case to camelCase
+ */
+function transformResponse<T>(data: unknown): T {
+  return transformKeys<T>(data, snakeToCamel);
+}
+
+/**
+ * Transform request body from camelCase to snake_case
+ */
+function transformRequest(data: unknown): unknown {
+  return transformKeys(data, camelToSnake);
+}
+
+/**
+ * Generic fetch wrapper with error handling and case transformation
  */
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
   try {
+    // Transform request body from camelCase to snake_case
+    let body = options?.body;
+    if (body && typeof body === 'string') {
+      try {
+        const parsed = JSON.parse(body);
+        body = JSON.stringify(transformRequest(parsed));
+      } catch {
+        // Not JSON, use as-is
+      }
+    }
+
     const response = await fetch(url, {
       ...options,
+      body,
       headers: {
         'Content-Type': 'application/json',
         ...options?.headers,
@@ -35,7 +92,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
       throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    // Transform response from snake_case to camelCase
+    return transformResponse<T>(data);
   } catch (error) {
     console.error('API request failed:', url, error);
     throw error;

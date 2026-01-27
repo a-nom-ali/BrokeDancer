@@ -4,8 +4,54 @@
 
 **BrokeDancer** - A multi-domain automation platform with React dashboard for monitoring and controlling trading bots.
 
-**Worktree**: `heuristic-elion`
-**Branch**: `heuristic-elion`
+**Worktree**: `cranky-lehmann`
+**Branch**: `cranky-lehmann`
+
+## Week 5 Progress (Integration Layer Fix)
+
+### Session 1: Deep Analysis & Integration Layer Fix
+
+**Analysis Completed:**
+- Full codebase analysis: 30,618 LOC Python backend, ~5,000 LOC React frontend
+- Backend: Grade B+ (excellent architecture, missing provider/strategy tests)
+- Frontend: Grade B+ (good patterns, missing unit tests)
+- Integration: Grade D (critical gaps identified and fixed)
+
+**Integration Issues Fixed:**
+1. ✅ API port default fixed (8000 → 8080 in `web/src/services/api.ts`)
+2. ✅ Added JSON snake_case ↔ camelCase transform layer for API responses
+3. ✅ Added 8 missing REST endpoints to Flask server:
+   - `/api/portfolio` - Global portfolio metrics
+   - `/api/portfolio/pnl` - PnL history for charts
+   - `/api/activity` - Global activity stream
+   - `/api/bots/<bot_id>/activity` - Bot-specific activity
+   - `/api/bots/<bot_id>/strategies` - Bot strategies
+   - `/api/strategies/<strategy_id>` - Strategy by ID
+   - `/api/strategies/<strategy_id>/start` - Start strategy
+   - `/api/strategies/<strategy_id>/pause` - Pause strategy
+   - `/api/strategies/<strategy_id>/executions` - Execution history
+   - `/api/strategies/<strategy_id>/workflow` - Workflow definition
+4. ✅ Added missing WebSocket handlers:
+   - `unsubscribe_strategy` - Unsubscribe from strategy events
+   - `unsubscribe_bot` - Unsubscribe from bot events
+   - `subscribe_all_bots` - Subscribe to all bot events
+   - `request_state` - Request current state
+   - `request_stats` - Request current stats
+5. ✅ Created demo mode (`src/web/demo_mode.py`):
+   - Mock data generator with 4 demo bots
+   - Realistic trade/event simulation
+   - Portfolio metrics generation
+   - Background event emitter
+6. ✅ Added integration tests (`tests/integration/test_full_stack.py`)
+
+**Files Modified:**
+- `web/src/services/api.ts` - Port fix + case transformation
+- `src/web/server.py` - Added missing REST endpoints
+- `src/web/websocket_server.py` - Added missing WebSocket handlers
+
+**Files Created:**
+- `src/web/demo_mode.py` - Demo mode event emitter
+- `tests/integration/test_full_stack.py` - Integration tests
 
 ## Completed Work (Weeks 1-4)
 
@@ -76,6 +122,9 @@ npm run test:e2e     # Playwright tests
 # Backend
 python -m src.web.server --port 8080
 python src/web/run_websocket_server.py --port 8001
+
+# Demo Mode (simulated data, no real trading)
+python -m src.web.demo_mode --port 8080
 ```
 
 ## Environment Configuration
@@ -95,29 +144,30 @@ VITE_ENABLE_DEBUG=true
 
 ## Week 5+ Suggested Tasks
 
-### Option A: Full Stack Integration
-1. Run full stack (Flask + WebSocket + React)
-2. Test real-time event flow end-to-end
-3. Add mock event emitter for demo mode
-4. Deploy to staging environment
+### Next Steps (after integration fix)
 
-### Option B: Trading Features
-1. Implement actual Polymarket API integration
-2. Add order execution from dashboard
-3. Real PnL tracking and portfolio display
-4. Risk management controls
+**Recommended Priority Order:**
 
-### Option C: Enhanced Dashboard
-1. Add Settings page for configuration
-2. Implement bot creation wizard
-3. Add notifications/alerts UI
-4. Dark/light theme toggle
+1. **Test Full Stack End-to-End**
+   - Run demo mode: `python -m src.web.demo_mode`
+   - Run frontend: `cd web && npm run dev`
+   - Verify dashboard shows demo data
+   - Test bot controls (start/pause/stop)
 
-### Option D: Production Readiness
-1. Add authentication/authorization
-2. Set up CI/CD pipeline
-3. Add comprehensive logging
-4. Performance monitoring
+2. **Add Unit Tests**
+   - Frontend: useWebSocket, useWorkflowEvents hooks
+   - Backend: Provider contract tests
+   - Backend: Strategy logic tests
+
+3. **Trading Features**
+   - Real Polymarket API integration
+   - Order execution from dashboard
+   - Real PnL tracking
+
+4. **Production Readiness**
+   - Authentication/authorization
+   - CI/CD pipeline
+   - Monitoring (Prometheus/Grafana)
 
 ## Recent Commits
 
@@ -136,18 +186,38 @@ ddaa19e ✨ Add error boundaries, loading states, and TypeScript fixes
 4. **ReactFlow v12**: Node types require `extends Record<string, unknown>`
 5. **Commit Style**: Gitmoji format (📚 docs, ✨ feature, 🐛 fix, etc.)
 
-## Starting Week 5
+## Running the Full Stack
 
 ```bash
 # Navigate to worktree
-cd /Users/nielowait/.claude-worktrees/Polymarket-trading-bot-15min-BTC/heuristic-elion
+cd /Users/nielowait/.claude-worktrees/Polymarket-trading-bot-15min-BTC/cranky-lehmann
 
-# Check current state
-git log --oneline -5
-npm run build  # Verify build works
+# Option 1: Demo Mode (simulated data)
+# Terminal 1: Backend in demo mode
+python -m src.web.demo_mode --port 8080
 
-# Start development
+# Terminal 2: Frontend
+cd web && npm run dev
+# Open http://localhost:5173
+
+# Option 2: Real Mode (requires API credentials)
+# Terminal 1: Flask server
+python -m src.web.server --port 8080
+
+# Terminal 2: WebSocket server
+python src/web/run_websocket_server.py --port 8001
+
+# Terminal 3: Frontend
 cd web && npm run dev
 ```
 
-Ask the user which Week 5 direction they'd like to pursue, then create a todo list and proceed.
+## Technical Debt Summary
+
+| Area | Priority | Notes |
+|------|----------|-------|
+| Provider tests | P1 | 12 providers with zero tests |
+| Strategy tests | P1 | 17 strategies with zero tests |
+| Frontend unit tests | P1 | 5 hooks/utils need tests |
+| Type hints | P2 | ~20 methods in base classes |
+| Accessibility | P2 | No ARIA attributes |
+| Multi-domain stubs | P3 | GPU/Ads/Ecommerce not implemented |

@@ -863,6 +863,281 @@ class TradingBotWebServer:
                 return jsonify({"error": str(e)}), 500
 
         # ====================================================================
+        # PORTFOLIO API (Dashboard Integration)
+        # ====================================================================
+
+        @self.app.route('/api/portfolio', methods=['GET'])
+        def api_get_portfolio():
+            """Get global portfolio metrics across all bots."""
+            try:
+                aggregated = self.bot_manager.get_aggregated_stats()
+                bots = self.bot_manager.get_all_bots()
+
+                # Calculate portfolio metrics
+                total_balance = sum(bot.get('balance', 0) for bot in bots)
+                total_pnl = aggregated.get('total_profit', 0) - aggregated.get('total_loss', 0)
+                active_bots = len([b for b in bots if b.get('status') == 'running'])
+
+                return jsonify({
+                    'total_balance': total_balance,
+                    'total_pnl': total_pnl,
+                    'total_trades': aggregated.get('total_trades', 0),
+                    'winning_trades': aggregated.get('winning_trades', 0),
+                    'losing_trades': aggregated.get('losing_trades', 0),
+                    'win_rate': aggregated.get('win_rate', 0),
+                    'active_bots': active_bots,
+                    'total_bots': len(bots),
+                    'active_strategies': sum(len(bot.get('strategies', [])) for bot in bots),
+                    'pnl_history': [],  # Populated by separate endpoint
+                    'updated_at': datetime.now().isoformat()
+                })
+            except Exception as e:
+                logger.error(f"Error getting portfolio: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/portfolio/pnl', methods=['GET'])
+        def api_get_pnl_history():
+            """Get PnL history for charting."""
+            days = request.args.get('days', 30, type=int)
+
+            try:
+                # Generate PnL history from trades
+                pnl_history = []
+                cumulative_pnl = 0
+
+                # Group trades by day
+                from collections import defaultdict
+                daily_pnl = defaultdict(float)
+
+                for trade in self.recent_trades:
+                    ts = trade.get('timestamp', '')
+                    if ts:
+                        date_str = ts[:10]  # Extract date part
+                        daily_pnl[date_str] += trade.get('profit', 0)
+
+                # Convert to sorted list
+                for date_str in sorted(daily_pnl.keys())[-days:]:
+                    cumulative_pnl += daily_pnl[date_str]
+                    pnl_history.append({
+                        'date': date_str,
+                        'daily_pnl': daily_pnl[date_str],
+                        'cumulative_pnl': cumulative_pnl
+                    })
+
+                return jsonify(pnl_history)
+            except Exception as e:
+                logger.error(f"Error getting PnL history: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        # ====================================================================
+        # ACTIVITY API (Dashboard Integration)
+        # ====================================================================
+
+        @self.app.route('/api/activity', methods=['GET'])
+        def api_get_activity():
+            """Get recent activity across all bots."""
+            limit = request.args.get('limit', 50, type=int)
+
+            try:
+                # Combine trades and events into activity stream
+                activities = []
+
+                # Add recent trades as activities
+                for trade in self.recent_trades[-limit:]:
+                    activities.append({
+                        'id': trade.get('id', str(len(activities))),
+                        'type': 'trade',
+                        'bot_id': trade.get('bot_id'),
+                        'strategy_id': trade.get('strategy_id'),
+                        'description': f"Trade executed: {trade.get('side', 'unknown')} {trade.get('amount', 0)}",
+                        'profit': trade.get('profit', 0),
+                        'timestamp': trade.get('timestamp'),
+                        'status': trade.get('status', 'completed')
+                    })
+
+                # Sort by timestamp descending
+                activities.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+                return jsonify(activities[:limit])
+            except Exception as e:
+                logger.error(f"Error getting activity: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/bots/<bot_id>/activity', methods=['GET'])
+        def api_get_bot_activity(bot_id):
+            """Get activity for a specific bot."""
+            limit = request.args.get('limit', 50, type=int)
+
+            try:
+                # Filter trades for this bot
+                bot_trades = [t for t in self.recent_trades if t.get('bot_id') == bot_id]
+
+                activities = []
+                for trade in bot_trades[-limit:]:
+                    activities.append({
+                        'id': trade.get('id', str(len(activities))),
+                        'type': 'trade',
+                        'bot_id': bot_id,
+                        'strategy_id': trade.get('strategy_id'),
+                        'description': f"Trade: {trade.get('side', 'unknown')} {trade.get('amount', 0)}",
+                        'profit': trade.get('profit', 0),
+                        'timestamp': trade.get('timestamp'),
+                        'status': trade.get('status', 'completed')
+                    })
+
+                activities.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+                return jsonify(activities[:limit])
+            except Exception as e:
+                logger.error(f"Error getting bot activity: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        # ====================================================================
+        # STRATEGY API (Dashboard Integration)
+        # ====================================================================
+
+        @self.app.route('/api/bots/<bot_id>/strategies', methods=['GET'])
+        def api_get_bot_strategies(bot_id):
+            """Get strategies for a specific bot."""
+            try:
+                bot = self.bot_manager.get_bot(bot_id)
+                if not bot:
+                    return jsonify({"error": "Bot not found"}), 404
+
+                # Get strategies from bot config
+                strategies = bot.get('strategies', [])
+
+                # If no strategies stored, create one from bot's primary strategy
+                if not strategies and bot.get('strategy'):
+                    strategies = [{
+                        'id': f"{bot_id}_strategy_1",
+                        'bot_id': bot_id,
+                        'name': bot.get('strategy'),
+                        'type': bot.get('strategy'),
+                        'status': bot.get('status', 'stopped'),
+                        'config': bot.get('config', {}),
+                        'created_at': bot.get('created_at', datetime.now().isoformat()),
+                        'metrics': {
+                            'total_executions': 0,
+                            'successful_executions': 0,
+                            'failed_executions': 0,
+                            'total_pnl': 0
+                        }
+                    }]
+
+                return jsonify(strategies)
+            except Exception as e:
+                logger.error(f"Error getting bot strategies: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/strategies/<strategy_id>', methods=['GET'])
+        def api_get_strategy(strategy_id):
+            """Get a specific strategy by ID."""
+            try:
+                # Search across all bots for this strategy
+                for bot in self.bot_manager.get_all_bots():
+                    for strategy in bot.get('strategies', []):
+                        if strategy.get('id') == strategy_id:
+                            return jsonify(strategy)
+
+                    # Check if strategy_id matches derived strategy
+                    if strategy_id == f"{bot['id']}_strategy_1":
+                        return jsonify({
+                            'id': strategy_id,
+                            'bot_id': bot['id'],
+                            'name': bot.get('strategy'),
+                            'type': bot.get('strategy'),
+                            'status': bot.get('status', 'stopped'),
+                            'config': bot.get('config', {}),
+                            'created_at': bot.get('created_at', datetime.now().isoformat())
+                        })
+
+                return jsonify({"error": "Strategy not found"}), 404
+            except Exception as e:
+                logger.error(f"Error getting strategy: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/strategies/<strategy_id>/start', methods=['POST'])
+        def api_start_strategy(strategy_id):
+            """Start a specific strategy."""
+            try:
+                # Find the bot owning this strategy and start it
+                for bot in self.bot_manager.get_all_bots():
+                    if strategy_id.startswith(bot['id']):
+                        self.bot_manager.start_bot(bot['id'])
+                        return jsonify({"status": "started"})
+
+                return jsonify({"error": "Strategy not found"}), 404
+            except Exception as e:
+                logger.error(f"Error starting strategy: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/strategies/<strategy_id>/pause', methods=['POST'])
+        def api_pause_strategy(strategy_id):
+            """Pause a specific strategy."""
+            try:
+                # Find the bot owning this strategy and pause it
+                for bot in self.bot_manager.get_all_bots():
+                    if strategy_id.startswith(bot['id']):
+                        self.bot_manager.pause_bot(bot['id'])
+                        return jsonify({"status": "paused"})
+
+                return jsonify({"error": "Strategy not found"}), 404
+            except Exception as e:
+                logger.error(f"Error pausing strategy: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/strategies/<strategy_id>/executions', methods=['GET'])
+        def api_get_strategy_executions(strategy_id):
+            """Get execution history for a strategy."""
+            limit = request.args.get('limit', 100, type=int)
+
+            try:
+                # Filter trades by strategy
+                executions = []
+                for trade in self.recent_trades:
+                    if trade.get('strategy_id') == strategy_id or strategy_id.startswith(trade.get('bot_id', '')):
+                        executions.append({
+                            'id': trade.get('id', str(len(executions))),
+                            'strategy_id': strategy_id,
+                            'timestamp': trade.get('timestamp'),
+                            'type': trade.get('type', 'trade'),
+                            'side': trade.get('side'),
+                            'amount': trade.get('amount'),
+                            'price': trade.get('price'),
+                            'profit': trade.get('profit', 0),
+                            'status': trade.get('status', 'completed'),
+                            'duration_ms': trade.get('duration_ms', 0)
+                        })
+
+                executions.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+                return jsonify(executions[:limit])
+            except Exception as e:
+                logger.error(f"Error getting strategy executions: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/strategies/<strategy_id>/workflow', methods=['GET'])
+        def api_get_strategy_workflow(strategy_id):
+            """Get workflow definition for a strategy."""
+            try:
+                # Find the bot with this strategy
+                for bot in self.bot_manager.get_all_bots():
+                    if strategy_id.startswith(bot['id']):
+                        workflow = bot.get('config', {}).get('workflow', {})
+                        if workflow:
+                            return jsonify(workflow)
+                        # Return empty workflow structure
+                        return jsonify({
+                            'blocks': [],
+                            'connections': [],
+                            'strategy_id': strategy_id
+                        })
+
+                return jsonify({"error": "Strategy not found"}), 404
+            except Exception as e:
+                logger.error(f"Error getting strategy workflow: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        # ====================================================================
         # WORKFLOW EXECUTION API
         # ====================================================================
 
