@@ -233,7 +233,7 @@ export const workflowAPI = {
   /**
    * Update node property
    */
-  async updateNodeProperty(strategyId: string, nodeId: string, property: string, value: any): Promise<void> {
+  async updateNodeProperty(strategyId: string, nodeId: string, property: string, value: unknown): Promise<void> {
     return fetchAPI<void>(`/strategies/${strategyId}/workflow/nodes/${nodeId}`, {
       method: 'PATCH',
       body: JSON.stringify({ property, value }),
@@ -243,7 +243,7 @@ export const workflowAPI = {
   /**
    * Save runtime value as default
    */
-  async saveRuntimeValue(strategyId: string, nodeId: string, field: string, value: any): Promise<void> {
+  async saveRuntimeValue(strategyId: string, nodeId: string, field: string, value: unknown): Promise<void> {
     return fetchAPI<void>(`/strategies/${strategyId}/workflow/nodes/${nodeId}/save-runtime`, {
       method: 'POST',
       body: JSON.stringify({ field, value }),

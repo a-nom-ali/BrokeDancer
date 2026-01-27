@@ -112,7 +112,14 @@ const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
     if (!startedEvent) return;
 
     // Track node statuses from events
-    const nodeStatuses = new Map<string, any>();
+    interface NodeStatusData {
+      status: string;
+      name?: string;
+      category?: string;
+      duration_ms?: number;
+      error?: string;
+    }
+    const nodeStatuses = new Map<string, NodeStatusData>();
 
     events.forEach((event) => {
       const nodeId = event.node_id;

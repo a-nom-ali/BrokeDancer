@@ -4,4 +4,18 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React dependencies
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Charting library (large)
+          'recharts': ['recharts'],
+          // Flow visualization (large)
+          'reactflow': ['@xyflow/react'],
+        },
+      },
+    },
+  },
 })

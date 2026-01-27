@@ -5,7 +5,7 @@
  * Wraps the websocketService singleton with React state and lifecycle.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { websocketService } from '../services/websocket';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -75,6 +75,9 @@ export function useWebSocket(autoConnect = true): UseWebSocketReturn {
     websocketService.unsubscribeFromStrategy(botId, strategyId);
   }, []);
 
+  // Track if we've already connected to avoid re-triggering
+  const hasConnectedRef = useRef(false);
+
   useEffect(() => {
     // Set up event listeners
     const handleConnect = () => {
@@ -98,9 +101,14 @@ export function useWebSocket(autoConnect = true): UseWebSocketReturn {
     websocketService.on('disconnect', handleDisconnect);
     websocketService.on('connect_error', handleError);
 
-    // Auto-connect if enabled
-    if (autoConnect) {
-      connect();
+    // Auto-connect if enabled (only once)
+    if (autoConnect && !hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      // Defer connection to avoid setState during render
+      queueMicrotask(() => {
+        websocketService.connect();
+        setConnectionStatus('connecting');
+      });
     }
 
     // Cleanup on unmount
@@ -113,7 +121,7 @@ export function useWebSocket(autoConnect = true): UseWebSocketReturn {
         disconnect();
       }
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [autoConnect, disconnect]);
 
   return {
     isConnected,

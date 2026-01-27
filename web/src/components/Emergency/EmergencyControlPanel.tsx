@@ -4,7 +4,7 @@
  * Emergency halt controls with current state display and manual controls.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useWorkflowEvents } from '../../hooks/useWorkflowEvents';
 import RiskLimitMonitor, { type RiskLimit } from './RiskLimitMonitor';
 import {
@@ -18,17 +18,26 @@ type EmergencyState = 'NORMAL' | 'ALERT' | 'HALT' | 'SHUTDOWN';
 
 const EmergencyControlPanel: React.FC = () => {
   const { events } = useWorkflowEvents({ maxEvents: 500 });
-  const [currentState, setCurrentState] = useState<EmergencyState>('NORMAL');
-  const [haltReason, setHaltReason] = useState<string>('');
+  const [manualState, setManualState] = useState<{ state: EmergencyState; reason: string } | null>(null);
 
-  // Track emergency state changes from events
-  useEffect(() => {
+  // Derive state from events, with manual override taking precedence
+  const { currentState, haltReason } = useMemo(() => {
+    // Manual state takes precedence
+    if (manualState) {
+      return { currentState: manualState.state, haltReason: manualState.reason };
+    }
+
+    // Otherwise derive from events
     const stateChangeEvent = events.find(e => e.type === 'emergency_state_changed');
     if (stateChangeEvent) {
-      setCurrentState(stateChangeEvent.new_state || 'NORMAL');
-      setHaltReason(stateChangeEvent.reason || '');
+      return {
+        currentState: ((stateChangeEvent.new_state as EmergencyState) || 'NORMAL'),
+        haltReason: ((stateChangeEvent.reason as string) || ''),
+      };
     }
-  }, [events]);
+
+    return { currentState: 'NORMAL' as EmergencyState, haltReason: '' };
+  }, [events, manualState]);
 
   // Calculate risk limits from events (mock data for now)
   const riskLimits: RiskLimit[] = useMemo(() => {
@@ -56,26 +65,23 @@ const EmergencyControlPanel: React.FC = () => {
   }, []);
 
   // Handle manual controls (would call API in production)
-  const handleHalt = () => {
+  const handleHalt = useCallback(() => {
     console.log('Emergency halt triggered');
-    setCurrentState('HALT');
-    setHaltReason('Manual halt by operator');
+    setManualState({ state: 'HALT', reason: 'Manual halt by operator' });
     // TODO: Call API to trigger halt
-  };
+  }, []);
 
-  const handleResume = () => {
+  const handleResume = useCallback(() => {
     console.log('Resuming normal operations');
-    setCurrentState('NORMAL');
-    setHaltReason('');
+    setManualState({ state: 'NORMAL', reason: '' });
     // TODO: Call API to resume
-  };
+  }, []);
 
-  const handleAlert = () => {
+  const handleAlert = useCallback(() => {
     console.log('Alert state set');
-    setCurrentState('ALERT');
-    setHaltReason('Manual alert by operator');
+    setManualState({ state: 'ALERT', reason: 'Manual alert by operator' });
     // TODO: Call API to set alert
-  };
+  }, []);
 
   const getStateColor = () => {
     switch (currentState) {
@@ -192,11 +198,11 @@ const EmergencyControlPanel: React.FC = () => {
                 <div>
                   <p className="text-sm text-white font-medium">
                     {event.type === 'emergency_state_changed'
-                      ? `State changed to ${event.new_state}`
+                      ? `State changed to ${String(event.new_state)}`
                       : 'Execution halted'}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {event.reason || 'No reason provided'}
+                    {String(event.reason || 'No reason provided')}
                   </p>
                 </div>
                 <span className="text-xs text-gray-500">

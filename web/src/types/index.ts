@@ -93,7 +93,7 @@ export interface StrategyConfig {
   minRoi: number;
   enableAutoExecution: boolean;
   dryRunMode: boolean;
-  customParams: Record<string, any>;
+  customParams: Record<string, unknown>;
 }
 
 // ==================== Workflow Types ====================
@@ -112,10 +112,10 @@ export interface WorkflowNode {
   id: string;
   type: string;
   category: NodeCategory;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   position: { x: number; y: number };
   status?: NodeStatus;
-  currentValue?: any;
+  currentValue?: unknown;
   lastExecutionTime?: number;
 }
 
@@ -134,7 +134,7 @@ export interface WorkflowConfig {
   pollIntervalSeconds?: number;
   enableAutoExecution: boolean;
   dryRun: boolean;
-  riskLimits: Record<string, any>;
+  riskLimits: Record<string, unknown>;
 }
 
 export const NodeCategory = {
@@ -152,7 +152,7 @@ export type NodeCategory = typeof NodeCategory[keyof typeof NodeCategory];
 export interface WebSocketEvent {
   type: string;
   timestamp: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface NodeExecutionEvent extends WebSocketEvent {
@@ -161,8 +161,8 @@ export interface NodeExecutionEvent extends WebSocketEvent {
   strategyId: string;
   nodeId: string;
   data: {
-    inputs: Record<string, any>;
-    outputs: Record<string, any>;
+    inputs: Record<string, unknown>;
+    outputs: Record<string, unknown>;
     status: 'success' | 'failed' | 'running';
     executionTimeMs: number;
     error?: string;
@@ -246,7 +246,7 @@ export interface ExecutionRecord {
   sellPrice?: number;
   profit?: number;
   status: 'filled' | 'skipped' | 'failed';
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 // ==================== Runtime Value Editing Types ====================
@@ -254,17 +254,17 @@ export interface ExecutionRecord {
 export interface NodeValueChange {
   nodeId: string;
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   timestamp: string;
   savedDuringRuntime: boolean;
 }
 
 export interface EditableNodeField {
   name: string;
-  defaultValue: any;
-  currentValue: any;
-  runtimeValue?: any;
+  defaultValue: unknown;
+  currentValue: unknown;
+  runtimeValue?: unknown;
   type: 'number' | 'string' | 'boolean' | 'select';
   min?: number;
   max?: number;

@@ -19,8 +19,9 @@ const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:80
 const RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
-// Event handler type
-type EventHandler<T = any> = (data: T) => void;
+// Event handler type - using generic function type for flexibility
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type EventHandler = (data: any) => void;
 
 /**
  * WebSocket Manager
@@ -97,23 +98,83 @@ class WebSocketService {
       this.emit('reconnected', { attempts: attemptNumber });
     });
 
-    // Application-specific events
+    // Application-specific events from backend
+    // Node execution events
     this.socket.on('node_execution', (data: NodeExecutionEvent) => {
       this.emit('node_execution', data);
     });
 
+    // Bot metrics events
     this.socket.on('bot_metrics', (data: BotMetricsEvent) => {
       this.emit('bot_metrics', data);
     });
 
+    // Strategy metrics events
     this.socket.on('strategy_metrics', (data: StrategyMetricsEvent) => {
       this.emit('strategy_metrics', data);
     });
 
+    // Risk limit updates
     this.socket.on('risk_limit_update', (data: RiskLimitUpdateEvent) => {
       this.emit('risk_limit_update', data);
     });
 
+    // Workflow events from backend WebSocket server
+    this.socket.on('workflow_event', (data: WebSocketEvent) => {
+      this.emit('workflow_event', data);
+    });
+
+    // Stats updates from Flask server
+    this.socket.on('stats_update', (data: WebSocketEvent) => {
+      this.emit('stats_update', data);
+    });
+
+    // Trade executed notifications
+    this.socket.on('trade_executed', (data: WebSocketEvent) => {
+      this.emit('trade_executed', data);
+      // Also emit as workflow_event for dashboard compatibility
+      this.emit('workflow_event', { ...data, type: 'execution_completed' });
+    });
+
+    // Bot lifecycle events
+    this.socket.on('bot_started', (data: WebSocketEvent) => {
+      this.emit('bot_started', data);
+      this.emit('workflow_event', { ...data, type: 'execution_started' });
+    });
+
+    this.socket.on('bot_stopped', (data: WebSocketEvent) => {
+      this.emit('bot_stopped', data);
+      this.emit('workflow_event', { ...data, type: 'execution_halted' });
+    });
+
+    this.socket.on('bot_paused', (data: WebSocketEvent) => {
+      this.emit('bot_paused', data);
+    });
+
+    this.socket.on('bot_resumed', (data: WebSocketEvent) => {
+      this.emit('bot_resumed', data);
+    });
+
+    // Bot list and health updates
+    this.socket.on('bot_list_update', (data: WebSocketEvent) => {
+      this.emit('bot_list_update', data);
+    });
+
+    this.socket.on('provider_health_update', (data: WebSocketEvent) => {
+      this.emit('provider_health_update', data);
+    });
+
+    // Recent events replay on connection
+    this.socket.on('recent_events', (data: WebSocketEvent[]) => {
+      data.forEach(event => this.emit('workflow_event', event));
+    });
+
+    // Notifications
+    this.socket.on('notification', (data: WebSocketEvent) => {
+      this.emit('notification', data);
+    });
+
+    // Execution complete (legacy)
     this.socket.on('execution_complete', (data: WebSocketEvent) => {
       this.emit('execution_complete', data);
     });
@@ -122,7 +183,7 @@ class WebSocketService {
   /**
    * Subscribe to an event
    */
-  on<T = any>(eventName: string, handler: EventHandler<T>): void {
+  on(eventName: string, handler: EventHandler): void {
     if (!this.eventHandlers.has(eventName)) {
       this.eventHandlers.set(eventName, new Set());
     }
@@ -132,7 +193,7 @@ class WebSocketService {
   /**
    * Unsubscribe from an event
    */
-  off<T = any>(eventName: string, handler: EventHandler<T>): void {
+  off(eventName: string, handler: EventHandler): void {
     const handlers = this.eventHandlers.get(eventName);
     if (handlers) {
       handlers.delete(handler);
@@ -142,7 +203,7 @@ class WebSocketService {
   /**
    * Emit an event to all subscribers
    */
-  private emit<T = any>(eventName: string, data: T): void {
+  private emit(eventName: string, data: unknown): void {
     const handlers = this.eventHandlers.get(eventName);
     if (handlers) {
       handlers.forEach(handler => handler(data));
@@ -152,7 +213,7 @@ class WebSocketService {
   /**
    * Send a message to the server
    */
-  send(eventName: string, data: any): void {
+  send(eventName: string, data: unknown): void {
     if (!this.socket?.connected) {
       console.warn('WebSocket not connected, cannot send:', eventName);
       return;

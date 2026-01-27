@@ -29,15 +29,15 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
   };
 
   const getKeyDetails = () => {
-    const details: Array<{ label: string; value: any }> = [];
+    const details: Array<{ label: string; value: string }> = [];
 
-    if (event.node_id) details.push({ label: 'Node ID', value: event.node_id });
-    if (event.node_name) details.push({ label: 'Node Name', value: event.node_name });
-    if (event.node_category) details.push({ label: 'Category', value: event.node_category });
+    if (event.node_id) details.push({ label: 'Node ID', value: String(event.node_id) });
+    if (event.node_name) details.push({ label: 'Node Name', value: String(event.node_name) });
+    if (event.node_category) details.push({ label: 'Category', value: String(event.node_category) });
     if (event.duration_ms) details.push({ label: 'Duration', value: `${event.duration_ms.toFixed(2)}ms` });
-    if (event.status) details.push({ label: 'Status', value: event.status });
-    if (event.error) details.push({ label: 'Error', value: event.error });
-    if (event.error_type) details.push({ label: 'Error Type', value: event.error_type });
+    if (event.status) details.push({ label: 'Status', value: String(event.status) });
+    if (event.error) details.push({ label: 'Error', value: String(event.error) });
+    if (event.error_type) details.push({ label: 'Error Type', value: String(event.error_type) });
 
     return details;
   };
@@ -90,7 +90,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Execution ID</p>
                   <code className="text-xs text-blue-400 font-mono break-all">
-                    {event.execution_id}
+                    {String(event.execution_id)}
                   </code>
                 </div>
               )}
@@ -98,7 +98,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Workflow ID</p>
                   <code className="text-xs text-gray-300 font-mono">
-                    {event.workflow_id}
+                    {String(event.workflow_id)}
                   </code>
                 </div>
               )}
@@ -106,7 +106,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Bot ID</p>
                   <code className="text-xs text-gray-300 font-mono">
-                    {event.bot_id}
+                    {String(event.bot_id)}
                   </code>
                 </div>
               )}
@@ -114,13 +114,13 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Strategy ID</p>
                   <code className="text-xs text-gray-300 font-mono">
-                    {event.strategy_id}
+                    {String(event.strategy_id)}
                   </code>
                 </div>
               )}
             </div>
 
-            {/* Key Details */}
+            {/* Details Section */}
             {keyDetails.length > 0 && (
               <div>
                 <p className="text-xs text-gray-500 mb-2">Details</p>

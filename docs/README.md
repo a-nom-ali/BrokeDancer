@@ -13,6 +13,9 @@ Welcome to the BTC 15-minute Arbitrage Bot documentation!
 ### Features
 - **[FEATURES.md](FEATURES.md)** - Detailed explanation of all bot features and how to use them
 
+### Dashboard
+- **[DASHBOARD.md](DASHBOARD.md)** - React dashboard setup, components, and testing guide
+
 ### Troubleshooting
 - **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and their solutions
 

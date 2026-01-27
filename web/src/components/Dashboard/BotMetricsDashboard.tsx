@@ -4,7 +4,7 @@
  * Grid display of bot performance metrics with real-time updates.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useWorkflowEvents } from '../../hooks/useWorkflowEvents';
 import MetricCard from '../Shared/MetricCard';
 import { CpuChipIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
@@ -21,14 +21,13 @@ interface BotMetrics {
 
 const BotMetricsDashboard: React.FC = () => {
   const { events } = useWorkflowEvents({ maxEvents: 500 });
-  const [botMetrics, setBotMetrics] = useState<Map<string, BotMetrics>>(new Map());
 
-  // Calculate metrics from events
-  useEffect(() => {
+  // Calculate metrics from events using useMemo instead of useEffect + setState
+  const botList = useMemo(() => {
     const metrics = new Map<string, BotMetrics>();
 
     events.forEach((event) => {
-      const botId = event.bot_id || 'unknown';
+      const botId = (event.bot_id as string) || 'unknown';
       if (!metrics.has(botId)) {
         metrics.set(botId, {
           botId,
@@ -58,10 +57,8 @@ const BotMetricsDashboard: React.FC = () => {
       }
     });
 
-    setBotMetrics(metrics);
+    return Array.from(metrics.values());
   }, [events]);
-
-  const botList = Array.from(botMetrics.values());
 
   if (botList.length === 0) {
     return (

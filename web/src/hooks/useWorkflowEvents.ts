@@ -19,9 +19,13 @@ export interface WorkflowEvent {
   timestamp: string;
   duration_ms?: number;
   status?: string;
-  outputs?: any;
+  outputs?: Record<string, unknown>;
   error?: string;
   error_type?: string;
+  new_state?: string;
+  reason?: string;
+  // Allow additional dynamic properties from WebSocket events
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
