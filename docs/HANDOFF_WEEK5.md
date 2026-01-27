@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Polymarket Trading Bot** - A multi-domain automation platform with React dashboard for monitoring and controlling trading bots.
+**BrokeDancer** - A multi-domain automation platform with React dashboard for monitoring and controlling trading bots.
 
 **Worktree**: `heuristic-elion`
 **Branch**: `heuristic-elion`

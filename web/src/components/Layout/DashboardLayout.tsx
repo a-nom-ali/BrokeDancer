@@ -29,7 +29,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         <header className="flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-white">
-              Polymarket Trading Bot
+              BrokeDancer
             </h1>
             <span className="text-sm text-gray-400">Dashboard</span>
           </div>

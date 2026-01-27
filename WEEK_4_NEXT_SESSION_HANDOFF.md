@@ -8,7 +8,7 @@
 
 ## Quick Context
 
-You are continuing work on a **Polymarket Trading Bot** with a comprehensive workflow execution system. Week 4 Day 3 added real-time charts with Recharts.
+You are continuing work on a **BrokeDancer** with a comprehensive workflow execution system. Week 4 Day 3 added real-time charts with Recharts.
 
 ### What's Been Built (Weeks 1-4 Day 3)
 
@@ -491,7 +491,7 @@ cd web && npm install
 **Copy-paste this prompt to start the next Claude Code session:**
 
 ```
-I'm continuing work on the Polymarket Trading Bot dashboard.
+I'm continuing work on the BrokeDancer dashboard.
 
 Week 4 Day 1 is COMPLETE - I just finished building a full React dashboard with real-time WebSocket integration (2,037+ lines, all working).
 

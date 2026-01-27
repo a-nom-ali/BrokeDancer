@@ -1,3 +1,3 @@
 """
-Test suite for Polymarket trading bot.
+Test suite for BrokeDancer.
 """
