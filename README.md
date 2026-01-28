@@ -1,3 +1,4 @@
+![BrakeDancerLogoRender.png](BrakeDancerLogoRender.png)
 # Professional Multi-Provider Trading Bot
 
 **Advanced algorithmic trading bot** with support for **8 exchanges**, **11 proven strategies**, and a **comprehensive management platform**.
