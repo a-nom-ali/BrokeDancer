@@ -4,13 +4,25 @@ Infrastructure Factory
 Unified factory for creating infrastructure components with configuration.
 """
 
+from datetime import timedelta
 from typing import Optional
+
 from .config import Config, get_config
 from .state import StateStore, create_state_store
 from .events import EventBus, create_event_bus
 from .logging import configure_logging
 from .emergency import EmergencyController
 from .resilience import CircuitBreaker
+from .versioning import (
+    VersionStore,
+    create_version_store,
+    RetentionPolicy,
+)
+from .versioning.workflows import WorkflowVersionManager
+from .versioning.strategies import StrategyRegistry
+from .versioning.configs import ConfigSnapshotManager
+from .versioning.bots import BotStateManager
+from .versioning.audit import AuditLog
 from src.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -44,7 +56,13 @@ class Infrastructure:
         config: Config,
         state: StateStore,
         events: EventBus,
-        emergency: EmergencyController
+        emergency: EmergencyController,
+        version_store: VersionStore,
+        audit_log: AuditLog,
+        workflow_versions: WorkflowVersionManager,
+        strategy_registry: StrategyRegistry,
+        config_snapshots: ConfigSnapshotManager,
+        bot_states: BotStateManager
     ):
         """
         Initialize infrastructure container.
@@ -54,11 +72,25 @@ class Infrastructure:
             state: State store instance
             events: Event bus instance
             emergency: Emergency controller instance
+            version_store: Version store instance
+            audit_log: Audit log instance
+            workflow_versions: Workflow version manager
+            strategy_registry: Strategy registry
+            config_snapshots: Config snapshot manager
+            bot_states: Bot state manager
         """
         self.config = config
         self.state = state
         self.events = events
         self.emergency = emergency
+
+        # Versioning components
+        self.version_store = version_store
+        self.audit_log = audit_log
+        self.workflow_versions = workflow_versions
+        self.strategy_registry = strategy_registry
+        self.config_snapshots = config_snapshots
+        self.bot_states = bot_states
 
         # Circuit breakers for common services
         self.circuit_breakers = {
@@ -79,6 +111,7 @@ class Infrastructure:
             env=config.env.value,
             state_backend=config.state.backend,
             events_backend=config.events.backend,
+            versioning_backend=config.versioning.backend,
             log_format=config.logging.format
         )
 
@@ -147,11 +180,57 @@ class Infrastructure:
         if config.emergency.persist_state:
             await emergency.restore_state(state)
 
+        # Create version store
+        version_store = create_version_store(
+            backend=config.versioning.backend,
+            url=config.versioning.redis_url if config.versioning.backend == "redis" else None
+        )
+
+        # Create audit log
+        audit_log = AuditLog(
+            version_store=version_store,
+            event_bus=events,
+            retention_policy=RetentionPolicy(
+                max_age=timedelta(days=config.versioning.audit_max_age_days),
+                keep_latest=1000
+            )
+        )
+
+        # Create workflow version manager
+        workflow_versions = WorkflowVersionManager(version_store)
+
+        # Create strategy registry
+        strategy_registry = StrategyRegistry(version_store)
+
+        # Create config snapshot manager
+        config_snapshots = ConfigSnapshotManager(version_store)
+
+        # Create bot state manager
+        auto_interval = None
+        if config.versioning.bot_auto_snapshot_interval_seconds > 0:
+            auto_interval = timedelta(seconds=config.versioning.bot_auto_snapshot_interval_seconds)
+
+        bot_states = BotStateManager(
+            version_store=version_store,
+            auto_snapshot_interval=auto_interval,
+            retention_policy=RetentionPolicy(
+                max_versions=config.versioning.bot_state_max_versions,
+                max_age=timedelta(days=config.versioning.bot_state_max_age_days),
+                keep_latest=10
+            )
+        )
+
         return cls(
             config=config,
             state=state,
             events=events,
-            emergency=emergency
+            emergency=emergency,
+            version_store=version_store,
+            audit_log=audit_log,
+            workflow_versions=workflow_versions,
+            strategy_registry=strategy_registry,
+            config_snapshots=config_snapshots,
+            bot_states=bot_states
         )
 
     async def close(self):
@@ -169,9 +248,15 @@ class Infrastructure:
         """
         logger.info("infrastructure_shutting_down")
 
+        # Stop auto-snapshots
+        await self.bot_states.stop_auto_snapshots()
+
         # Persist emergency state
         if self.config.emergency.persist_state:
             await self.emergency.persist_state(self.state)
+
+        # Close version store
+        await self.version_store.close()
 
         # Close event bus
         await self.events.close()
@@ -259,6 +344,20 @@ class Infrastructure:
             }
             for name, breaker in self.circuit_breakers.items()
         }
+
+        # Check version store
+        try:
+            from .versioning import EntityType
+            await self.version_store.save_version(
+                entity_type=EntityType.CONFIG,
+                entity_id="_health_check",
+                data={"status": "ok"},
+                created_by="system"
+            )
+            health["components"]["versioning"] = "healthy"
+        except Exception as e:
+            health["components"]["versioning"] = f"unhealthy: {str(e)}"
+            health["status"] = "degraded"
 
         return health
 
