@@ -161,6 +161,58 @@ class EmergencyConfig(BaseModel):
     )
 
 
+class VersioningConfig(BaseModel):
+    """Versioning configuration"""
+
+    backend: Literal["memory", "redis"] = Field(
+        default="memory",
+        description="Version store backend to use"
+    )
+    redis_url: str = Field(
+        default="redis://localhost:6379",
+        description="Redis connection URL for versioning"
+    )
+
+    # Retention policies
+    strategy_max_versions: int = Field(
+        default=50,
+        ge=1,
+        description="Max strategy config versions to keep"
+    )
+    workflow_max_versions: int = Field(
+        default=100,
+        ge=1,
+        description="Max workflow versions to keep"
+    )
+    config_max_versions: int = Field(
+        default=20,
+        ge=1,
+        description="Max config snapshot versions to keep"
+    )
+    bot_state_max_versions: int = Field(
+        default=100,
+        ge=1,
+        description="Max bot state snapshots to keep"
+    )
+    bot_state_max_age_days: int = Field(
+        default=30,
+        ge=1,
+        description="Max age for bot state snapshots in days"
+    )
+    audit_max_age_days: int = Field(
+        default=90,
+        ge=1,
+        description="Max age for audit events in days"
+    )
+
+    # Auto-snapshot settings
+    bot_auto_snapshot_interval_seconds: int = Field(
+        default=0,
+        ge=0,
+        description="Interval for automatic bot state snapshots (0 = disabled)"
+    )
+
+
 class Config(BaseSettings):
     """
     Main application configuration.
@@ -217,6 +269,10 @@ class Config(BaseSettings):
         default_factory=EmergencyConfig,
         description="Emergency controls configuration"
     )
+    versioning: VersioningConfig = Field(
+        default_factory=VersioningConfig,
+        description="Versioning configuration"
+    )
 
     class Config:
         env_file = ".env"
@@ -232,6 +288,7 @@ def get_development_config() -> Config:
     - Console logging (colorful, readable)
     - Relaxed resilience settings
     - Lower risk limits for testing
+    - In-memory versioning
     """
     return Config(
         env=Environment.DEVELOPMENT,
@@ -256,6 +313,10 @@ def get_development_config() -> Config:
             daily_loss_limit=-100.0,
             max_position_size=1000.0,
             auto_halt_on_limit=False  # Don't auto-halt in dev
+        ),
+        versioning=VersioningConfig(
+            backend="memory",
+            bot_auto_snapshot_interval_seconds=0  # Disabled in dev
         )
     )
 
@@ -268,6 +329,7 @@ def get_staging_config() -> Config:
     - JSON logging (structured)
     - Production-like resilience settings
     - Production risk limits
+    - Redis versioning with auto-snapshots
     """
     return Config(
         env=Environment.STAGING,
@@ -291,6 +353,11 @@ def get_staging_config() -> Config:
         emergency=EmergencyConfig(
             daily_loss_limit=-500.0,
             auto_halt_on_limit=True
+        ),
+        versioning=VersioningConfig(
+            backend="redis",
+            redis_url="redis://localhost:6379",
+            bot_auto_snapshot_interval_seconds=300  # 5 minutes
         )
     )
 
@@ -304,6 +371,7 @@ def get_production_config() -> Config:
     - Strict resilience settings
     - Production risk limits
     - Auto-halt enabled
+    - Redis versioning with auto-snapshots
     """
     return Config(
         env=Environment.PRODUCTION,
@@ -333,6 +401,11 @@ def get_production_config() -> Config:
             max_position_size=10000.0,
             auto_halt_on_limit=True,
             persist_state=True
+        ),
+        versioning=VersioningConfig(
+            backend="redis",
+            redis_url="redis://localhost:6379",  # Override with env var
+            bot_auto_snapshot_interval_seconds=300  # 5 minutes
         )
     )
 
